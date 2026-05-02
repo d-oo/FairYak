@@ -9,7 +9,7 @@ export default async function Page() {
 
   return (
     <div>
-      Testing
+      Testing2
       <ul>
         {todos?.map((todo) => (
           <li key={todo.id}>{todo.name}</li>
