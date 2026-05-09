@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import DashboardClient from "./DashboardClient";
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -11,12 +12,19 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/");
 
-  // 프로필 조회
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("name")
-    .eq("id", user.id)
-    .single();
+  const [{ data: profile }, { data: locations }, { data: schedules }] =
+    await Promise.all([
+      supabase.from("profiles").select("name").eq("id", user.id).single(),
+      supabase
+        .from("user_locations")
+        .select("name, address")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("user_schedules")
+        .select("free_date")
+        .eq("user_id", user.id),
+    ]);
 
   async function handleLogout() {
     "use server";
@@ -26,14 +34,18 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
+  const displayName = profile?.name
+    ? `${profile.name}(${user.email})`
+    : user.email;
+
   return (
-    <div className="min-h-screen bg-[#f8f9fa]">
-      <header className="bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
-        <span className="text-xl font-bold text-[#0d1f2d]">FairYak</span>
+    <div className="min-h-screen bg-[#f0f2f5]">
+      <header className="bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <span className="text-xl font-bold text-[#0d1f2d] tracking-tight">
+          FairYak
+        </span>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-[#6b7280]">
-            {profile?.name ?? user.email}님
-          </span>
+          <span className="text-sm text-[#6b7280]">{displayName}님</span>
           <form action={handleLogout}>
             <button
               type="submit"
@@ -45,19 +57,16 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-12">
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold text-[#0d1f2d]">
-            안녕하세요, {profile?.name ?? ""}님! 👋
-          </h1>
-          <p className="text-[#6b7280]">
-            대시보드가 곧 완성될 예정이에요. 함께 만들어가요!
-          </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4ecdc4]/10 text-[#4ecdc4] text-sm font-medium">
-            <span>✉️</span> {user.email}
-          </div>
-        </div>
-      </main>
+      <DashboardClient
+        userId={user.id}
+        userName={profile?.name ?? ""}
+        userEmail={user.email ?? ""}
+        initialLocations={(locations ?? []).map((l) => ({
+          name: l.name,
+          address: l.address ?? "",
+        }))}
+        initialFreeDates={(schedules ?? []).map((s) => s.free_date as string)}
+      />
     </div>
   );
 }
