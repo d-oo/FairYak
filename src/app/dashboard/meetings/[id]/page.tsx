@@ -108,6 +108,7 @@ export default async function MeetingDetailPage({
         meetingId={meetingId}
         meetingName={meeting.name}
         currentUserId={user.id}
+        currentUserName={profile?.name ?? user.email ?? "알 수 없음"}
         currentUserEmail={user.email ?? ""}
         myDepartureAddress={myMembership.departure_address}
         myHasLocation={myMembership.departure_location !== null}

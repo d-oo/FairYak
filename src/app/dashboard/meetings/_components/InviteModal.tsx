@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import InviteSearchPanel, {
   type InviteTarget,
-} from "@/components/InviteSearchPanel";
+} from "@/app/dashboard/_components/InviteSearchPanel";
 
 interface Props {
   meetingId: number;

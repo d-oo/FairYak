@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import Calendar from "@/components/Calendar";
-import AddressSearch, { type AddressResult } from "@/components/AddressSearch";
+import Calendar from "@/app/dashboard/_components/Calendar";
+import AddressSearch, {
+  type AddressResult,
+} from "@/app/dashboard/_components/AddressSearch";
 
 type Location = { name: string; address: string };
 
