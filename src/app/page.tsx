@@ -27,7 +27,7 @@ export default async function LandingPage() {
       {/* 헤더 */}
       <header className="relative z-10 px-10 py-8">
         <span className="text-2xl font-bold text-[#4ecdc4] tracking-tight">
-          모여
+          페어약
         </span>
       </header>
 
@@ -35,15 +35,15 @@ export default async function LandingPage() {
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
         <div className="max-w-xl w-full space-y-8 text-center">
           <div className="space-y-4">
-            <h1 className="text-6xl font-bold text-white leading-tight">
-              같이하면
-              <br />더 쉬워요.
+            <h1 className="text-4xl font-bold text-white leading-tight">
+              모임 일정 및 장소 추천
             </h1>
             <p className="text-[#8faabb] text-xl leading-relaxed">
               가입하고 친구들을 초대해보세요.
               <br />
-              서로 바쁜 일정 속에서
-              <br />딱 맞는 날을 찾아드릴게요.
+              모두가 만족하는 모임 날짜와 장소를
+              <br />
+              찾아드릴게요.
             </p>
           </div>
 
@@ -51,6 +51,7 @@ export default async function LandingPage() {
             {[
               { emoji: "📅", text: "바쁜 날 / 한가한 날 등록" },
               { emoji: "📍", text: "자주 가는 장소 저장" },
+              { emoji: "📅", text: "모두가 한가한 날 찾기" },
               { emoji: "🎯", text: "모두의 중간 지점 추천" },
             ].map((item) => (
               <div key={item.text} className="flex items-center gap-3">
@@ -76,13 +77,6 @@ export default async function LandingPage() {
           </div>
         </div>
       </main>
-
-      {/* 푸터 */}
-      <footer className="relative z-10 px-10 py-6">
-        <p className="text-[#4a6278] text-sm">
-          © 2025 모여. 모두가 행복한 약속을 위해.
-        </p>
-      </footer>
     </div>
   );
 }

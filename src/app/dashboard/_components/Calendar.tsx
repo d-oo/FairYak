@@ -165,17 +165,12 @@ export default function Calendar({
       <div className="flex items-center gap-5 mt-5 pt-4 border-t border-[#f0f0f0]">
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-lg bg-[#4ecdc4]" />
-          <span className="text-xs text-[#6b7280]">{markedLabel} 날</span>
+          <span className="text-xs text-[#6b7280]">{markedLabel}한 날</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-lg ring-2 ring-[#4ecdc4]" />
           <span className="text-xs text-[#6b7280]">오늘</span>
         </div>
-        {!isReadOnly && (
-          <p className="text-xs text-[#9ca3af] ml-auto">
-            날짜를 클릭하면 토글돼요
-          </p>
-        )}
       </div>
     </div>
   );

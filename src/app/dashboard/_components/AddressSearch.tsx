@@ -11,13 +11,9 @@ export type AddressResult = {
 
 interface Props {
   onSelect: (result: AddressResult) => void;
-  placeholder?: string;
 }
 
-export default function AddressSearch({
-  onSelect,
-  placeholder = "장소명 또는 주소를 검색하세요",
-}: Props) {
+export default function AddressSearch({ onSelect }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AddressResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -166,7 +162,7 @@ export default function AddressSearch({
           onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => results.length > 0 && setShowDropdown(true)}
           onKeyDown={(e) => e.key === "Escape" && setShowDropdown(false)}
-          placeholder={placeholder}
+          placeholder="장소명 또는 주소를 검색하세요"
           autoComplete="off"
           className={`w-full pl-9 pr-4 py-3 rounded-xl border text-sm text-[#0d1f2d] placeholder-[#9ca3af]
             focus:outline-none focus:ring-2 focus:ring-[#4ecdc4] focus:border-transparent transition-all

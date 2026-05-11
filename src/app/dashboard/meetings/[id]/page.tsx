@@ -73,59 +73,28 @@ export default async function MeetingDetailPage({
     }));
   }
 
-  async function handleLogout() {
-    "use server";
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    await supabase.auth.signOut();
-    redirect("/");
-  }
-
-  const displayName = profile?.name
-    ? `${profile.name}(${user.email})`
-    : user.email;
-
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
-      <header className="bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <span className="text-xl font-bold text-[#0d1f2d] tracking-tight">
-          FairYak
-        </span>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[#6b7280]">{displayName}님</span>
-          <form action={handleLogout}>
-            <button
-              type="submit"
-              className="text-sm text-[#6b7280] hover:text-[#0d1f2d] transition-colors cursor-pointer"
-            >
-              로그아웃
-            </button>
-          </form>
-        </div>
-      </header>
-
-      <MeetingDetailClient
-        meetingId={meetingId}
-        meetingName={meeting.name}
-        currentUserId={user.id}
-        currentUserName={profile?.name ?? user.email ?? "알 수 없음"}
-        currentUserEmail={user.email ?? ""}
-        myDepartureAddress={myMembership.departure_address}
-        myHasLocation={myMembership.departure_location !== null}
-        initialMembers={(members ?? []).map((m) => ({
-          userId: m.user_id,
-          name:
-            (m.profiles as unknown as { name: string } | null)?.name ??
-            "알 수 없음",
-          hasLocation: m.departure_location !== null,
-          departureAddress: m.departure_address,
-        }))}
-        initialPendingInvites={pendingInvites}
-        savedLocations={(savedLocations ?? []).map((l) => ({
-          name: l.name,
-          address: l.address ?? "",
-        }))}
-      />
-    </div>
+    <MeetingDetailClient
+      meetingId={meetingId}
+      meetingName={meeting.name}
+      currentUserId={user.id}
+      currentUserName={profile?.name ?? user.email ?? "알 수 없음"}
+      currentUserEmail={user.email ?? ""}
+      myDepartureAddress={myMembership.departure_address}
+      myHasLocation={myMembership.departure_location !== null}
+      initialMembers={(members ?? []).map((m) => ({
+        userId: m.user_id,
+        name:
+          (m.profiles as unknown as { name: string } | null)?.name ??
+          "알 수 없음",
+        hasLocation: m.departure_location !== null,
+        departureAddress: m.departure_address,
+      }))}
+      initialPendingInvites={pendingInvites}
+      savedLocations={(savedLocations ?? []).map((l) => ({
+        name: l.name,
+        address: l.address ?? "",
+      }))}
+    />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import InviteModal from "@/app/dashboard/meetings/_components/InviteModal";
@@ -126,6 +126,10 @@ export default function MeetingDetailClient({
   const canUpdate = myHasLocation || stagedLocation !== null;
   const displayAddress = stagedLocation?.address ?? myDepartureAddress;
 
+  useEffect(() => {
+    router.prefetch("/dashboard/meetings");
+  }, []);
+
   async function handleUpdate() {
     if (!canUpdate || isUpdating) return;
     setIsUpdating(true);
@@ -224,7 +228,7 @@ export default function MeetingDetailClient({
       });
     }
 
-    router.push("/dashboard?tab=meetings");
+    router.push("/dashboard/meetings");
   }
 
   return (
@@ -263,10 +267,21 @@ export default function MeetingDetailClient({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/dashboard?tab=meetings")}
+              onClick={() => router.push("/dashboard/meetings")}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#e5e7eb] bg-white text-sm font-semibold text-[#6b7280] hover:text-[#0d1f2d] hover:border-[#0d1f2d] transition-all cursor-pointer"
             >
-              <span>←</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="7 4 10 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-3.5 h-3.5"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
               <span>목록</span>
             </button>
             <h1 className="text-xl font-bold text-[#0d1f2d]">{meetingName}</h1>
@@ -279,10 +294,10 @@ export default function MeetingDetailClient({
           </button>
         </div>
 
-        {/* 인원 현황 */}
+        {/* 모임 인원 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
           <h2 className="text-sm font-bold text-[#0d1f2d] mb-4">
-            인원 현황
+            모임 인원
             <span className="ml-2 text-xs font-normal text-[#9ca3af]">
               {members.length}명 참여
               {pendingInvites.length > 0 &&

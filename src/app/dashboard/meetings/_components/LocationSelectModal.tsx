@@ -133,10 +133,7 @@ export default function LocationSelectModal({
 
           {tab === "search" && (
             <>
-              <AddressSearch
-                onSelect={setSearchResult}
-                placeholder="장소명 또는 주소를 검색하세요"
-              />
+              <AddressSearch onSelect={setSearchResult} />
               {searchResult && (
                 <div className="px-4 py-3 rounded-xl bg-[#f0faf9] border border-[#4ecdc4]/30">
                   <p className="text-xs text-[#0d9488] font-semibold">

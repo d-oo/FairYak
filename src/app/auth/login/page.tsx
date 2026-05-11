@@ -41,15 +41,26 @@ export default function LoginPage() {
         <div className="mb-8">
           <Link
             href="/"
-            className="text-2xl font-bold text-[#0d1f2d] hover:text-[#4ecdc4] transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-sm font-semibold text-[#6b7280] hover:text-[#0d1f2d] transition-colors cursor-pointer"
           >
-            FairYak
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="7 4 10 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-3.5 h-3.5"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span>페어약</span>
           </Link>
         </div>
 
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-[#0d1f2d]">로그인</h2>
-          <p className="mt-2 text-[#6b7280]">로그인해서 일정을 저장해보세요.</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -114,15 +125,6 @@ export default function LoginPage() {
               회원가입
             </Link>
           </p>
-        </div>
-
-        <div className="mt-4 text-center">
-          <Link
-            href="/"
-            className="text-sm text-[#9ca3af] hover:text-[#6b7280] transition-colors cursor-pointer"
-          >
-            ← 홈으로
-          </Link>
         </div>
       </div>
     </div>

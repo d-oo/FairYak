@@ -82,14 +82,26 @@ export default function SignupPage() {
         <div className="mb-8">
           <Link
             href="/"
-            className="text-2xl font-bold text-[#0d1f2d] hover:text-[#4ecdc4] transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-sm font-semibold text-[#6b7280] hover:text-[#0d1f2d] transition-colors cursor-pointer"
           >
-            모여
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="7 4 10 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-3.5 h-3.5"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span>페어약</span>
           </Link>
         </div>
 
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-[#0d1f2d]">시작해볼까요 🎉</h2>
+          <h2 className="text-3xl font-bold text-[#0d1f2d]">회원가입</h2>
           <p className="mt-2 text-[#6b7280]">
             계정을 만들고 친구들과 약속을 잡아봐요.
           </p>
@@ -182,15 +194,6 @@ export default function SignupPage() {
               로그인
             </Link>
           </p>
-        </div>
-
-        <div className="mt-4 text-center">
-          <Link
-            href="/"
-            className="text-sm text-[#9ca3af] hover:text-[#6b7280] transition-colors cursor-pointer"
-          >
-            ← 홈으로
-          </Link>
         </div>
       </div>
     </div>

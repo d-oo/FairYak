@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fair-Yak",
-  description: "약속 일정 및 장소 추천 서비스",
+  title: "페어약: 모임 일정 및 장소 추천 서비스",
+  description: "모임 일정 및 장소 추천 서비스",
 };
 
 export default function RootLayout({

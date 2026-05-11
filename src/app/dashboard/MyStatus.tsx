@@ -78,10 +78,7 @@ function AddLocationModal({
             <label className="block text-sm font-semibold text-[#374151]">
               주소 찾기
             </label>
-            <AddressSearch
-              onSelect={setAddressResult}
-              placeholder="장소명 또는 주소를 검색하세요"
-            />
+            <AddressSearch onSelect={setAddressResult} />
             {addressResult && (
               <p className="text-xs text-[#0d9488] bg-[#f0faf9] px-3 py-2 rounded-xl">
                 선택됨: {addressResult.address}
