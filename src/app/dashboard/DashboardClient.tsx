@@ -3,6 +3,7 @@
 import { useState } from "react";
 import MyStatus from "./MyStatus";
 import MeetingList from "./MeetingList";
+import NotificationBell from "@/components/NotificationBell";
 
 type Tab = "dashboard" | "meetings";
 
@@ -16,6 +17,7 @@ interface Props {
 
 export default function DashboardClient({
   userId,
+  userEmail,
   initialLocations,
   initialFreeDates,
 }: Props) {
@@ -23,8 +25,8 @@ export default function DashboardClient({
 
   return (
     <div>
-      {/* 탭 바 */}
-      <div className="bg-white border-b border-[#e5e7eb] px-6">
+      {/* 탭 바 + 알림 벨 */}
+      <div className="bg-white border-b border-[#e5e7eb] px-6 flex items-center justify-between">
         <div className="flex gap-1">
           {(
             [
@@ -45,6 +47,7 @@ export default function DashboardClient({
             </button>
           ))}
         </div>
+        <NotificationBell userId={userId} />
       </div>
 
       {activeTab === "dashboard" && (
@@ -54,7 +57,9 @@ export default function DashboardClient({
           initialFreeDates={initialFreeDates}
         />
       )}
-      {activeTab === "meetings" && <MeetingList />}
+      {activeTab === "meetings" && (
+        <MeetingList userId={userId} userEmail={userEmail} />
+      )}
     </div>
   );
 }
