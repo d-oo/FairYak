@@ -24,14 +24,18 @@ function toDateStr(year: number, month: number, day: number) {
 
 interface CalendarProps {
   markedDates: Set<string>;
+  secondaryDates?: Set<string>;
   onToggle?: (dateStr: string) => Promise<void>;
   markedLabel?: string;
+  secondaryLabel?: string;
 }
 
 export default function Calendar({
   markedDates,
+  secondaryDates,
   onToggle,
   markedLabel = "한가",
+  secondaryLabel,
 }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loadingDate, setLoadingDate] = useState<string | null>(null);
@@ -112,25 +116,38 @@ export default function Calendar({
           const isMarked = markedDates.has(ds);
           const isToday = ds === todayStr;
           const isLoading = loadingDate === ds;
+          const isPast = ds < todayStr;
           const dow = (firstDayOfMonth + i) % 7;
+          const isSecondary = !isMarked && (secondaryDates?.has(ds) ?? false);
           const isRed = dow === 0;
 
           const baseClass = `
             relative aspect-square flex flex-col items-center justify-center rounded-xl
             text-sm font-semibold transition-all select-none
-            ${isReadOnly ? "cursor-default" : "cursor-pointer"}
             ${
-              isMarked
-                ? "bg-[#4ecdc4] text-white shadow-sm hover:bg-[#3dbdb4]"
-                : isToday
-                  ? "ring-2 ring-[#4ecdc4] text-[#0d1f2d] hover:bg-[#f0f2f5]"
-                  : !isReadOnly
+              isPast
+                ? "text-[#d1d5db] cursor-default"
+                : isReadOnly
+                  ? "cursor-default"
+                  : "cursor-pointer"
+            }
+            ${
+              !isPast && isSecondary
+                ? "bg-[#ccfbf1] text-[#0d9488] border border-[#4ecdc4]/40"
+                : ""
+            }
+            ${
+              !isPast && isMarked
+                ? `bg-[#4ecdc4] text-white shadow-sm ${!isReadOnly ? "hover:bg-[#3dbdb4]" : ""} ${isToday ? "ring-2 ring-[#0d1f2d] ring-offset-1" : ""}`
+                : !isPast && isToday
+                  ? `ring-2 ring-[#4ecdc4] text-[#0d1f2d]${!isReadOnly ? " hover:bg-[#f0f2f5]" : ""}`
+                  : !isPast && !isReadOnly
                     ? "hover:bg-[#f0f2f5]"
                     : ""
             }
-            ${!isMarked && isRed ? "text-red-400" : ""}
-            ${!isMarked && !isRed && dow === 6 ? "text-blue-400" : ""}
-            ${!isMarked && !isRed && dow !== 6 ? "text-[#374151]" : ""}
+            ${!isPast && !isMarked && isRed ? "text-red-400" : ""}
+            ${!isPast && !isMarked && !isRed && dow === 6 ? "text-blue-400" : ""}
+            ${!isPast && !isMarked && !isRed && dow !== 6 ? "text-[#374151]" : ""}
             ${isLoading ? "opacity-50" : ""}
           `;
 
@@ -140,6 +157,11 @@ export default function Calendar({
               {isMarked && (
                 <span className="text-[9px] leading-none mt-0.5 opacity-80 font-normal">
                   {markedLabel}
+                </span>
+              )}
+              {isSecondary && secondaryLabel && (
+                <span className="text-[9px] leading-none mt-0.5 opacity-70 font-normal">
+                  {secondaryLabel}
                 </span>
               )}
             </>
@@ -153,7 +175,7 @@ export default function Calendar({
             <button
               key={ds}
               onClick={() => handleDayClick(ds)}
-              disabled={!!loadingDate}
+              disabled={!!loadingDate || isPast}
               className={baseClass}
             >
               {content}
@@ -171,6 +193,12 @@ export default function Calendar({
           <div className="w-5 h-5 rounded-lg ring-2 ring-[#4ecdc4]" />
           <span className="text-xs text-[#6b7280]">오늘</span>
         </div>
+        {secondaryDates && secondaryDates.size > 0 && secondaryLabel && (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-lg bg-[#ccfbf1] border border-[#4ecdc4]/40" />
+            <span className="text-xs text-[#6b7280]">{secondaryLabel}</span>
+          </div>
+        )}
       </div>
     </div>
   );

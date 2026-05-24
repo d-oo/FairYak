@@ -7,6 +7,9 @@ import InviteModal from "@/app/dashboard/meetings/_components/InviteModal";
 import LocationSelectModal, {
   type StagedLocation,
 } from "@/app/dashboard/meetings/_components/LocationSelectModal";
+import MeetingMemberList from "@/app/dashboard/meetings/_components/MeetingMemberList";
+import LeaveConfirmModal from "@/app/dashboard/meetings/_components/LeaveConfirmModal";
+import MeetingScheduleResult from "@/app/dashboard/meetings/_components/MeetingScheduleResult";
 
 interface MemberItem {
   userId: string;
@@ -36,56 +39,6 @@ interface Props {
   initialMembers: MemberItem[];
   initialPendingInvites: PendingInviteItem[];
   savedLocations: SavedLocation[];
-}
-
-// ── 나가기 확인 모달 ──────────────────────────────────────────
-function LeaveConfirmModal({
-  meetingName,
-  isLeaving,
-  onConfirm,
-  onClose,
-}: {
-  meetingName: string;
-  isLeaving: boolean;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
-        <div className="text-center space-y-2">
-          <p className="text-2xl">🚪</p>
-          <h2 className="text-base font-bold text-[#0d1f2d]">
-            모임을 나가시겠어요?
-          </h2>
-          <p className="text-sm text-[#6b7280]">
-            <span className="font-semibold text-[#374151]">
-              '{meetingName}'
-            </span>
-            에서 나가면
-            <br />
-            다시 초대를 받아야 참여할 수 있어요.
-          </p>
-        </div>
-        <div className="flex gap-3 pt-1">
-          <button
-            onClick={onClose}
-            disabled={isLeaving}
-            className="flex-1 py-3 rounded-xl border border-[#e5e7eb] text-sm font-semibold text-[#6b7280] hover:bg-[#f8f9fa] transition-colors cursor-pointer disabled:opacity-40"
-          >
-            취소
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isLeaving}
-            className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {isLeaving ? "나가는 중..." : "나가기"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── MeetingDetail 메인 ────────────────────────────────────────
@@ -122,6 +75,7 @@ export default function MeetingDetailClient({
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState(false);
 
   const canUpdate = myHasLocation || stagedLocation !== null;
   const displayAddress = stagedLocation?.address ?? myDepartureAddress;
@@ -132,7 +86,23 @@ export default function MeetingDetailClient({
 
   async function handleUpdate() {
     if (!canUpdate || isUpdating) return;
+    setScheduleError(false);
     setIsUpdating(true);
+
+    // 오늘 이후 한가한 날 확인
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const { data: futureDates } = await supabase
+      .from("user_schedules")
+      .select("free_date")
+      .eq("user_id", currentUserId)
+      .gte("free_date", todayStr);
+
+    if (!futureDates || futureDates.length === 0) {
+      setScheduleError(true);
+      setIsUpdating(false);
+      return;
+    }
 
     if (stagedLocation) {
       if (stagedLocation.source === "saved") {
@@ -293,67 +263,11 @@ export default function MeetingDetailClient({
             + 초대
           </button>
         </div>
-
-        {/* 모임 인원 */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-          <h2 className="text-sm font-bold text-[#0d1f2d] mb-4">
-            모임 인원
-            <span className="ml-2 text-xs font-normal text-[#9ca3af]">
-              {members.length}명 참여
-              {pendingInvites.length > 0 &&
-                ` · ${pendingInvites.length}명 대기중`}
-            </span>
-          </h2>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {members.map((member) => (
-              <div
-                key={member.userId}
-                className={`px-3 py-3 rounded-xl border ${
-                  member.userId === currentUserId
-                    ? "border-[#4ecdc4]/50 bg-[#f0faf9]"
-                    : "border-[#f0f0f0] bg-[#f8f9fa]"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div
-                    className={`w-2 h-2 rounded-full shrink-0 ${member.hasLocation ? "bg-[#4ecdc4]" : "bg-[#e5e7eb]"}`}
-                  />
-                  <p className="text-sm font-semibold text-[#374151] truncate">
-                    {member.name}
-                    {member.userId === currentUserId && (
-                      <span className="ml-1 text-[10px] text-[#4ecdc4] font-normal">
-                        (나)
-                      </span>
-                    )}
-                  </p>
-                </div>
-                {member.hasLocation ? (
-                  <p className="text-xs text-[#9ca3af] truncate pl-4">
-                    {member.departureAddress}
-                  </p>
-                ) : (
-                  <p className="text-xs text-[#d1d5db] pl-4">위치 미입력</p>
-                )}
-              </div>
-            ))}
-
-            {pendingInvites.map((inv) => (
-              <div
-                key={inv.toUserId}
-                className="px-3 py-3 rounded-xl border border-dashed border-[#e5e7eb] bg-white"
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-2 h-2 rounded-full bg-[#e5e7eb] shrink-0" />
-                  <p className="text-sm font-semibold text-[#9ca3af] truncate">
-                    {inv.toUserName}
-                  </p>
-                </div>
-                <p className="text-xs text-[#c4c9d0] pl-4">초대 대기중</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <MeetingMemberList
+          members={members}
+          pendingInvites={pendingInvites}
+          currentUserId={currentUserId}
+        />
 
         {/* 내 출발지 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
@@ -367,6 +281,11 @@ export default function MeetingDetailClient({
               >
                 {isUpdating ? "업데이트 중..." : "업데이트"}
               </button>
+              {scheduleError && (
+                <p className="absolute top-full left-0 mt-1.5 text-xs text-red-500">
+                  일정 관리에서 한가한 날을 먼저 입력해주세요.
+                </p>
+              )}
               {canUpdate && !isUpdating && (
                 <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-[#0d1f2d] text-white text-xs rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   현재 내 일정과 변경된 위치가 반영됩니다.
@@ -413,6 +332,11 @@ export default function MeetingDetailClient({
             </div>
           )}
         </section>
+
+        <MeetingScheduleResult
+          meetingId={meetingId}
+          memberCount={members.length}
+        />
 
         {/* 모임 나가기 */}
         <div className="flex justify-end">
