@@ -31,12 +31,11 @@ export default function MeetingScheduleResult({
   memberCount,
 }: Props) {
   const supabase = createClient();
+  const todayStr = toDateStr(new Date());
 
   const [isLoading, setIsLoading] = useState(true);
   const [updatedCount, setUpdatedCount] = useState(0);
   const [result, setResult] = useState<ScheduleResult | null>(null);
-
-  const todayStr = toDateStr(new Date());
 
   useEffect(() => {
     let isCancelled = false;
@@ -64,7 +63,7 @@ export default function MeetingScheduleResult({
         )
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "members" },
+          { event: "*", schema: "public", table: "members" },
           () => {
             if (!isCancelled) fetchData();
           },
@@ -86,18 +85,14 @@ export default function MeetingScheduleResult({
       .select("departure_location")
       .eq("meeting_id", meetingId);
 
+    const freshMemberCount = (members ?? []).length;
     const updated = (members ?? []).filter(
       (m) => m.departure_location !== null,
     ).length;
     setUpdatedCount(updated);
 
-    if (updated < memberCount) {
+    if (updated < freshMemberCount) {
       setResult(null);
-      // 미완료 상태면 기존 추천 결과 삭제
-      await supabase
-        .from("recommended_schedules")
-        .delete()
-        .eq("meeting_id", meetingId);
       setIsLoading(false);
       return;
     }
@@ -117,15 +112,12 @@ export default function MeetingScheduleResult({
 
     // 4. 완벽한 공통 한가일 찾기
     const perfectDates = [...dateMap.entries()]
-      .filter(([_, count]) => count === memberCount)
+      .filter(([_, count]) => count === freshMemberCount)
       .map(([date]) => date)
       .sort();
 
-    let datesToStore: string[];
-
     if (perfectDates.length > 0) {
       setResult({ type: "perfect", dates: perfectDates });
-      datesToStore = perfectDates;
     } else {
       const maxCount = Math.max(...dateMap.values());
       const partialDates = [...dateMap.entries()]
@@ -137,23 +129,6 @@ export default function MeetingScheduleResult({
         dates: partialDates,
         partialCount: maxCount,
       });
-      datesToStore = partialDates;
-    }
-
-    // 5. recommended_schedules 업데이트 (기존 삭제 후 재삽입)
-    await supabase
-      .from("recommended_schedules")
-      .delete()
-      .eq("meeting_id", meetingId);
-    if (datesToStore.length > 0) {
-      await supabase
-        .from("recommended_schedules")
-        .insert(
-          datesToStore.map((date) => ({
-            meeting_id: meetingId,
-            common_free_date: date,
-          })),
-        );
     }
 
     setIsLoading(false);
@@ -161,10 +136,8 @@ export default function MeetingScheduleResult({
 
   const markedDates =
     result?.type === "perfect" ? new Set(result.dates) : new Set<string>();
-
   const secondaryDates =
     result?.type === "partial" ? new Set(result.dates) : new Set<string>();
-
   const listDates = result?.dates.slice(0, 5) ?? [];
 
   return (
@@ -181,7 +154,6 @@ export default function MeetingScheduleResult({
           <p className="text-xs text-[#9ca3af]">
             {memberCount}명 중 {updatedCount}명 완료
           </p>
-          {/* 진행 바 */}
           <div className="mx-auto w-48 h-1.5 bg-[#f0f2f5] rounded-full overflow-hidden mt-3">
             <div
               className="h-full bg-[#4ecdc4] rounded-full transition-all"
@@ -197,7 +169,6 @@ export default function MeetingScheduleResult({
         result &&
         result.dates.length > 0 && (
           <div className="space-y-5">
-            {/* 상태 배지 */}
             {result.type === "perfect" ? (
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#4ecdc4]/10 text-[#0d9488] text-xs font-semibold">
                 ✅ 모두가 한가한 날이 있어요
@@ -209,7 +180,6 @@ export default function MeetingScheduleResult({
               </div>
             )}
 
-            {/* 날짜 리스트 (최대 5개) */}
             <ul className="space-y-2">
               {listDates.map((date) => (
                 <li
@@ -250,12 +220,12 @@ export default function MeetingScheduleResult({
               )}
             </ul>
 
-            {/* 달력 */}
             <Calendar
               markedDates={markedDates}
               secondaryDates={secondaryDates}
-              markedLabel="공통"
-              secondaryLabel="차선"
+              markedLabel=""
+              markedLegendLabel="추천 날짜"
+              secondaryLabel="추천 날짜"
             />
           </div>
         )}

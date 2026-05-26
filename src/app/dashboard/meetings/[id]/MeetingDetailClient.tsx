@@ -10,6 +10,7 @@ import LocationSelectModal, {
 import MeetingMemberList from "@/app/dashboard/meetings/_components/MeetingMemberList";
 import LeaveConfirmModal from "@/app/dashboard/meetings/_components/LeaveConfirmModal";
 import MeetingScheduleResult from "@/app/dashboard/meetings/_components/MeetingScheduleResult";
+import MeetingLocationResult from "@/app/dashboard/meetings/_components/MeetingLocationResult";
 
 interface MemberItem {
   userId: string;
@@ -78,6 +79,13 @@ export default function MeetingDetailClient({
   const [scheduleError, setScheduleError] = useState(false);
 
   const canUpdate = myHasLocation || stagedLocation !== null;
+
+  useEffect(() => {
+    if (scheduleError) {
+      const t = setTimeout(() => setScheduleError(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [scheduleError]);
   const displayAddress = stagedLocation?.address ?? myDepartureAddress;
 
   useEffect(() => {
@@ -282,9 +290,17 @@ export default function MeetingDetailClient({
                 {isUpdating ? "업데이트 중..." : "업데이트"}
               </button>
               {scheduleError && (
-                <p className="absolute top-full left-0 mt-1.5 text-xs text-red-500">
-                  일정 관리에서 한가한 날을 먼저 입력해주세요.
-                </p>
+                <div className="absolute top-full right-0 mt-3 z-10">
+                  {/* 말풍선 꼬리 */}
+                  <div className="absolute -top-2 right-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-[#fcd34d]" />
+                  <div className="absolute -top-1.5 right-4.25 w-0 h-0 border-l-[7px] border-r-[7px] border-b-[7px] border-l-transparent border-r-transparent border-b-[#fff8f0]" />
+                  <div className="flex items-center gap-2 px-4 py-3 bg-[#fff8f0] border border-[#fcd34d] rounded-xl shadow-sm whitespace-nowrap">
+                    <span className="text-base">📅</span>
+                    <p className="text-xs text-[#92400e] font-medium">
+                      일정 관리에서 한가한 날을 먼저 입력해주세요.
+                    </p>
+                  </div>
+                </div>
               )}
               {canUpdate && !isUpdating && (
                 <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-[#0d1f2d] text-white text-xs rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -337,6 +353,8 @@ export default function MeetingDetailClient({
           meetingId={meetingId}
           memberCount={members.length}
         />
+
+        <MeetingLocationResult />
 
         {/* 모임 나가기 */}
         <div className="flex justify-end">

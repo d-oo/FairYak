@@ -27,6 +27,8 @@ interface CalendarProps {
   secondaryDates?: Set<string>;
   onToggle?: (dateStr: string) => Promise<void>;
   markedLabel?: string;
+  markedLegendLabel?: string;
+  secondaryCellLabel?: string;
   secondaryLabel?: string;
 }
 
@@ -35,6 +37,8 @@ export default function Calendar({
   secondaryDates,
   onToggle,
   markedLabel = "한가",
+  markedLegendLabel,
+  secondaryCellLabel,
   secondaryLabel,
 }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -133,7 +137,7 @@ export default function Calendar({
             }
             ${
               !isPast && isSecondary
-                ? "bg-[#ccfbf1] text-[#0d9488] border border-[#4ecdc4]/40"
+                ? "bg-[#fef3c7] text-[#92400e] border border-[#fcd34d]/50"
                 : ""
             }
             ${
@@ -159,9 +163,9 @@ export default function Calendar({
                   {markedLabel}
                 </span>
               )}
-              {isSecondary && secondaryLabel && (
+              {isSecondary && secondaryCellLabel && (
                 <span className="text-[9px] leading-none mt-0.5 opacity-70 font-normal">
-                  {secondaryLabel}
+                  {secondaryCellLabel}
                 </span>
               )}
             </>
@@ -185,20 +189,24 @@ export default function Calendar({
       </div>
 
       <div className="flex items-center gap-5 mt-5 pt-4 border-t border-[#f0f0f0]">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-lg bg-[#4ecdc4]" />
-          <span className="text-xs text-[#6b7280]">{markedLabel}한 날</span>
-        </div>
+        {markedDates.size > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-lg bg-[#4ecdc4]" />
+            <span className="text-xs text-[#6b7280]">
+              {markedLegendLabel ?? `${markedLabel}한 날`}
+            </span>
+          </div>
+        )}
+        {secondaryDates && secondaryDates.size > 0 && secondaryLabel && (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-lg bg-[#fef3c7] border border-[#fcd34d]/50" />
+            <span className="text-xs text-[#6b7280]">{secondaryLabel}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-lg ring-2 ring-[#4ecdc4]" />
           <span className="text-xs text-[#6b7280]">오늘</span>
         </div>
-        {secondaryDates && secondaryDates.size > 0 && secondaryLabel && (
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-lg bg-[#ccfbf1] border border-[#4ecdc4]/40" />
-            <span className="text-xs text-[#6b7280]">{secondaryLabel}</span>
-          </div>
-        )}
       </div>
     </div>
   );

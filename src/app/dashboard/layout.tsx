@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Script from "next/script";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import DashboardTabBar from "./_components/DashboardTabBar";
@@ -56,6 +57,11 @@ export default async function DashboardLayout({
       <DashboardTabBar userId={user.id} />
 
       {children}
+
+      <Script
+        src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`}
+        strategy="afterInteractive"
+      />
     </div>
   );
 }
