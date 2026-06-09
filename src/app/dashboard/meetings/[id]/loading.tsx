@@ -70,6 +70,22 @@ export default function MeetingDetailLoading() {
           </div>
         </div>
 
+        {/* 활동 로그 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
+          <div className="h-4 w-20 bg-[#e9ebee] rounded animate-pulse mb-4" />
+          <div className="space-y-3 animate-pulse">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#f0f2f5] shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 bg-[#f0f2f5] rounded w-48" />
+                  <div className="h-2.5 bg-[#f0f2f5] rounded w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* 모임 나가기 */}
         <div className="flex justify-end">
           <div className="h-8 w-24 bg-white rounded-xl border border-[#e9ebee] animate-pulse" />

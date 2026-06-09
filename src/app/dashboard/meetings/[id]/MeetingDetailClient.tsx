@@ -11,6 +11,7 @@ import MeetingMemberList from "@/app/dashboard/meetings/_components/MeetingMembe
 import LeaveConfirmModal from "@/app/dashboard/meetings/_components/LeaveConfirmModal";
 import MeetingScheduleResult from "@/app/dashboard/meetings/_components/MeetingScheduleResult";
 import MeetingLocationResult from "@/app/dashboard/meetings/_components/MeetingLocationResult";
+import MeetingLogSection from "@/app/dashboard/meetings/_components/MeetingLogSection";
 
 interface MemberItem {
   userId: string;
@@ -197,13 +198,6 @@ export default function MeetingDetailClient({
     if (count === 0) {
       // 마지막 인원 → 모임 삭제 (CASCADE로 연관 데이터 정리)
       await supabase.from("meetings").delete().eq("id", meetingId);
-    } else {
-      // 퇴장 로그
-      await supabase.from("meeting_logs").insert({
-        meeting_id: meetingId,
-        user_name: currentUserName,
-        type: "member_left",
-      });
     }
 
     router.push("/dashboard/meetings");
@@ -354,7 +348,13 @@ export default function MeetingDetailClient({
           memberCount={members.length}
         />
 
-        <MeetingLocationResult />
+        <MeetingLocationResult
+          meetingId={meetingId}
+          memberCount={members.length}
+          currentUserId={currentUserId}
+        />
+
+        <MeetingLogSection meetingId={meetingId} />
 
         {/* 모임 나가기 */}
         <div className="flex justify-end">

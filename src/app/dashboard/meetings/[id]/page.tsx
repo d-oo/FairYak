@@ -29,12 +29,15 @@ export default async function MeetingDetailPage({
 
   if (!myMembership) redirect("/dashboard");
 
+  const today = new Date().toISOString().split("T")[0];
+
   const [
     { data: meeting },
     { data: members },
     { data: invitations },
     { data: savedLocations },
     { data: profile },
+    { data: futureSchedules },
   ] = await Promise.all([
     supabase.from("meetings").select("id, name").eq("id", meetingId).single(),
     supabase
@@ -51,6 +54,11 @@ export default async function MeetingDetailPage({
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("name").eq("id", user.id).single(),
+    supabase
+      .from("member_schedules")
+      .select("user_id")
+      .eq("meeting_id", meetingId)
+      .gte("free_date", today),
   ]);
 
   if (!meeting) redirect("/dashboard");
@@ -87,7 +95,9 @@ export default async function MeetingDetailPage({
         name:
           (m.profiles as unknown as { name: string } | null)?.name ??
           "알 수 없음",
-        hasLocation: m.departure_location !== null,
+        hasLocation:
+          m.departure_location !== null &&
+          (futureSchedules ?? []).some((s) => s.user_id === m.user_id),
         departureAddress: m.departure_address,
       }))}
       initialPendingInvites={pendingInvites}

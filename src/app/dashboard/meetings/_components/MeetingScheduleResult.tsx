@@ -35,6 +35,7 @@ export default function MeetingScheduleResult({
 
   const [isLoading, setIsLoading] = useState(true);
   const [updatedCount, setUpdatedCount] = useState(0);
+  const [currentMemberCount, setCurrentMemberCount] = useState(memberCount);
   const [result, setResult] = useState<ScheduleResult | null>(null);
 
   useEffect(() => {
@@ -79,16 +80,31 @@ export default function MeetingScheduleResult({
   }, [meetingId]);
 
   async function fetchData() {
-    // 1. 모든 멤버 업데이트 여부 확인 (departure_location이 있으면 업데이트한 것)
+    // 1. 최신 멤버 현황 확인
     const { data: members } = await supabase
       .from("members")
-      .select("departure_location")
+      .select("user_id, departure_location")
       .eq("meeting_id", meetingId);
 
     const freshMemberCount = (members ?? []).length;
-    const updated = (members ?? []).filter(
+    const membersWithLocation = (members ?? []).filter(
       (m) => m.departure_location !== null,
+    );
+
+    // 미래 member_schedules가 있는 멤버만 "업데이트 완료"로 판단
+    const { data: futureSchedules } = await supabase
+      .from("member_schedules")
+      .select("user_id, free_date")
+      .eq("meeting_id", meetingId)
+      .gte("free_date", todayStr);
+
+    const userIdsWithFutureSchedules = new Set(
+      (futureSchedules ?? []).map((s) => s.user_id),
+    );
+    const updated = membersWithLocation.filter((m) =>
+      userIdsWithFutureSchedules.has(m.user_id),
     ).length;
+    setCurrentMemberCount(freshMemberCount);
     setUpdatedCount(updated);
 
     if (updated < freshMemberCount) {
@@ -97,16 +113,9 @@ export default function MeetingScheduleResult({
       return;
     }
 
-    // 2. member_schedules 조회
-    const { data: schedules } = await supabase
-      .from("member_schedules")
-      .select("user_id, free_date")
-      .eq("meeting_id", meetingId)
-      .gte("free_date", todayStr);
-
-    // 3. 날짜별 인원 수 집계
+    // 2. 날짜별 인원 수 집계 (step 1에서 조회한 futureSchedules 재사용)
     const dateMap = new Map<string, number>();
-    for (const s of schedules ?? []) {
+    for (const s of futureSchedules ?? []) {
       dateMap.set(s.free_date, (dateMap.get(s.free_date) ?? 0) + 1);
     }
 

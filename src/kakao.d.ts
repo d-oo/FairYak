@@ -15,7 +15,10 @@ declare global {
         Marker: new (options: {
           map?: KakaoMapInstance;
           position: KakaoLatLng;
+          image?: KakaoMarkerImage;
         }) => KakaoMarker;
+        MarkerImage: new (src: string, size: KakaoSize) => KakaoMarkerImage;
+        Size: new (width: number, height: number) => KakaoSize;
         InfoWindow: new (options: {
           content: string;
           removable?: boolean;
@@ -43,6 +46,10 @@ declare global {
   }
 
   interface KakaoMarker {}
+
+  interface KakaoMarkerImage {}
+
+  interface KakaoSize {}
 
   interface KakaoInfoWindow {
     open: (map: KakaoMapInstance, marker: KakaoMarker) => void;

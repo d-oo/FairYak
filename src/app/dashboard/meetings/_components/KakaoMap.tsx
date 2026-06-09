@@ -9,41 +9,36 @@ export interface MapLocation {
   lng: number;
 }
 
-interface Props {
-  locations: MapLocation[];
+export interface MemberMapLocation {
+  name: string;
+  lat: number;
+  lng: number;
+  isMe: boolean;
 }
 
-export default function KakaoMap({ locations }: Props) {
+interface Props {
+  locations: MapLocation[];
+  memberLocations?: MemberMapLocation[];
+}
+
+function markerImageUrl(color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+    <circle cx="14" cy="14" r="13" fill="${color}" stroke="white" stroke-width="2"/>
+    <text x="14" y="19" text-anchor="middle" fill="white" font-size="14">★</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+export default function KakaoMap({ locations, memberLocations = [] }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<KakaoMapInstance | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    let pollCount = 0;
 
     function initMap() {
-      console.log(
-        "[KakaoMap] initMap called, containerRef:",
-        containerRef.current,
-      );
-      if (cancelled || !containerRef.current) {
-        console.log(
-          "[KakaoMap] initMap aborted - cancelled:",
-          cancelled,
-          "containerRef:",
-          containerRef.current,
-        );
-        return;
-      }
+      if (cancelled || !containerRef.current) return;
 
-      console.log("[KakaoMap] calling kakao.maps.load...");
       window.kakao.maps.load(() => {
-        console.log(
-          "[KakaoMap] kakao.maps.load callback, cancelled:",
-          cancelled,
-          "containerRef:",
-          containerRef.current,
-        );
         if (cancelled || !containerRef.current) return;
 
         const center = new window.kakao.maps.LatLng(
@@ -54,12 +49,21 @@ export default function KakaoMap({ locations }: Props) {
           center,
           level: 5,
         });
-        console.log("[KakaoMap] Map created:", map);
-        mapRef.current = map as unknown as KakaoMapInstance;
 
         const bounds = new window.kakao.maps.LatLngBounds();
         let openInfoWindow: KakaoInfoWindow | null = null;
 
+        function closeOpenInfoWindow() {
+          if (openInfoWindow) {
+            openInfoWindow.close();
+            openInfoWindow = null;
+          }
+        }
+
+        // 지도 클릭 시 인포윈도우 닫기
+        window.kakao.maps.event.addListener(map, "click", closeOpenInfoWindow);
+
+        // 추천 장소 마커 (기본 빨간 마커)
         locations.forEach((loc) => {
           const position = new window.kakao.maps.LatLng(loc.lat, loc.lng);
           const marker = new window.kakao.maps.Marker({ map, position });
@@ -70,40 +74,54 @@ export default function KakaoMap({ locations }: Props) {
           });
 
           window.kakao.maps.event.addListener(marker, "click", () => {
-            if (openInfoWindow) openInfoWindow.close();
+            closeOpenInfoWindow();
             infoWindow.open(map, marker);
             openInfoWindow = infoWindow;
           });
         });
 
-        if (locations.length > 1) map.setBounds(bounds);
-        console.log("[KakaoMap] Map init complete ✅");
+        // 멤버 출발지 마커
+        memberLocations.forEach((loc) => {
+          const position = new window.kakao.maps.LatLng(loc.lat, loc.lng);
+          const color = loc.isMe ? "#0d1f2d" : "#4ecdc4";
+          const marker = new window.kakao.maps.Marker({
+            map,
+            position,
+            image: new window.kakao.maps.MarkerImage(
+              markerImageUrl(color),
+              new window.kakao.maps.Size(28, 28),
+            ),
+          });
+          bounds.extend(position);
+
+          const label = loc.isMe ? "내 위치" : loc.name;
+          const infoWindow = new window.kakao.maps.InfoWindow({
+            content: `<div style="padding:6px 10px;font-size:13px;font-weight:600;color:${color}">${label}</div>`,
+          });
+
+          window.kakao.maps.event.addListener(marker, "click", () => {
+            closeOpenInfoWindow();
+            infoWindow.open(map, marker);
+            openInfoWindow = infoWindow;
+          });
+        });
+
+        const allLocations = [...locations, ...memberLocations];
+        if (allLocations.length > 1) map.setBounds(bounds);
       });
     }
 
     function waitForKakao() {
-      if (cancelled) {
-        console.log("[KakaoMap] polling cancelled at count:", pollCount);
-        return;
-      }
-      pollCount++;
-      if (window.kakao) {
-        console.log("[KakaoMap] kakao found after", pollCount, "polls");
-        initMap();
-      } else {
-        if (pollCount <= 3)
-          console.log("[KakaoMap] kakao not ready, poll #", pollCount);
-        setTimeout(waitForKakao, 100);
-      }
+      if (cancelled) return;
+      if (window.kakao) initMap();
+      else setTimeout(waitForKakao, 100);
     }
 
-    console.log("[KakaoMap] useEffect start");
     waitForKakao();
     return () => {
-      console.log("[KakaoMap] cleanup, cancelled=true");
       cancelled = true;
     };
-  }, [locations]);
+  }, [locations, memberLocations]);
 
   return (
     <div
