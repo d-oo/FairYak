@@ -1,38 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 페어약 (FairYak)
 
-## Getting Started
+여러 명이 모이는 **모임 날짜와 장소**를 공평하게 정할 수 있도록 도와주는 웹 서비스입니다. 각 멤버가 한가한 날짜와 출발지를 등록하면, 모두가 겹치는 날짜를 찾아주고 모두의 이동 시간을 최소화하는 모임 장소를 추천해줍니다.
 
-First, run the development server:
+## 주요 기능
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **일정 관리**: 캘린더에서 한가한 날짜를 등록/관리
+- **모임 생성 및 초대**: 모임을 만들고 이메일로 멤버를 검색해 초대
+- **추천 일정**: 모든 멤버가 업데이트를 마치면 전원이 겹치는 날짜(또는 가장 많이 겹치는 날짜)를 자동으로 계산
+- **추천 장소**: 멤버들의 출발지 중심점을 기준으로 지하철역·주요 장소 후보를 찾고, 대중교통 이동 시간을 기준으로 최적의 모임 장소를 추천
+- **알림**: 모임 초대를 실시간 알림으로 수신, 수락/거절 처리
+- **모임 로그**: 모임 내 활동 이력 기록
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 기술 스택
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-testing 2
+- **프레임워크**: [Next.js](https://nextjs.org) (App Router) + React + TypeScript
+- **백엔드**: [Supabase](https://supabase.com) (Postgres + Auth + Realtime + Row Level Security) — 별도 애플리케이션 서버 없이 클라이언트에서 직접 연동
+- **스타일링**: Tailwind CSS v4
+- **지도/장소**: Kakao Maps JS SDK, Kakao Local API
+- **대중교통 이동시간**: ODsay API
