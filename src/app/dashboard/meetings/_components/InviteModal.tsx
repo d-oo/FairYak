@@ -32,10 +32,8 @@ export default function InviteModal({
     email: string,
   ): Promise<{ data: InviteTarget | null; error: string }> {
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, name, email")
-      .eq("email", email)
-      .single();
+      .rpc("find_profile_by_email", { p_email: email })
+      .maybeSingle<InviteTarget>();
 
     if (!profile)
       return {

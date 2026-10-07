@@ -182,23 +182,8 @@ export default function MeetingDetailClient({
   async function handleLeave() {
     setIsLeaving(true);
 
-    // members에서 삭제
-    await supabase
-      .from("members")
-      .delete()
-      .eq("user_id", currentUserId)
-      .eq("meeting_id", meetingId);
-
-    // 남은 인원 확인
-    const { count } = await supabase
-      .from("members")
-      .select("*", { count: "exact", head: true })
-      .eq("meeting_id", meetingId);
-
-    if (count === 0) {
-      // 마지막 인원 → 모임 삭제 (CASCADE로 연관 데이터 정리)
-      await supabase.from("meetings").delete().eq("id", meetingId);
-    }
+    // members에서 삭제, 마지막 인원이면 모임도 삭제 (RPC 내부에서 처리)
+    await supabase.rpc("leave_meeting", { p_meeting_id: meetingId });
 
     router.push("/dashboard/meetings");
   }

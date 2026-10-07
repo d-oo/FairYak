@@ -38,10 +38,8 @@ export default function CreateMeetingModal({
     email: string,
   ): Promise<{ data: InviteTarget | null; error: string }> {
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, name, email")
-      .eq("email", email)
-      .single();
+      .rpc("find_profile_by_email", { p_email: email })
+      .maybeSingle<InviteTarget>();
 
     if (!profile)
       return {
@@ -60,24 +58,13 @@ export default function CreateMeetingModal({
     setIsSubmitting(true);
     setSubmitError("");
 
+    // 모임 생성 + 본인 멤버 등록을 RPC 한 번으로 처리 (RLS상 생성 직후엔 멤버가 아니라 조회 불가)
     const { data: meeting, error: meetingError } = await supabase
-      .from("meetings")
-      .insert({ name: meetingName.trim() })
-      .select("id, name")
-      .single();
+      .rpc("create_meeting", { p_name: meetingName.trim() })
+      .single<{ id: number; name: string }>();
 
     if (meetingError || !meeting) {
       setSubmitError("모임 생성에 실패했어요. 다시 시도해주세요.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { error: memberError } = await supabase
-      .from("members")
-      .insert({ user_id: userId, meeting_id: meeting.id });
-
-    if (memberError) {
-      setSubmitError("모임 참여 처리에 실패했어요. 다시 시도해주세요.");
       setIsSubmitting(false);
       return;
     }
