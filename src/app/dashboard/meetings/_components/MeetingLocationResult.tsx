@@ -17,12 +17,18 @@ interface RecommendedLocation {
   placeName: string;
   lat: number;
   lng: number;
+  // user_id → 이동시간(분). ODsay 조회에 실패한 멤버는 키가 없다.
+  travelTimes: Record<string, number>;
 }
 
 interface MemberCoord {
+  user_id: string;
   lat: number;
   lng: number;
 }
+
+// 다른 멤버가 계산 중일 때 결과를 다시 확인하는 간격
+const CALC_RETRY_DELAY_MS = 20000;
 
 interface Candidate {
   name: string;
@@ -104,15 +110,16 @@ export default function MeetingLocationResult({
 }: Props) {
   const supabase = createClient();
   const isCalculatingRef = useRef(false);
-  const isFetchingTravelTimesRef = useRef(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [locations, setLocations] = useState<RecommendedLocation[]>([]);
   const [memberLocations, setMemberLocations] = useState<MemberMapLocation[]>(
     [],
   );
-  const [travelTimes, setTravelTimes] = useState<Record<number, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
+  // 다른 멤버가 계산 중이라 결과를 기다리는 상태
+  const [isWaitingForOther, setIsWaitingForOther] = useState(false);
   const [allUpdated, setAllUpdated] = useState(false);
   const [updatedCount, setUpdatedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -153,37 +160,9 @@ export default function MeetingLocationResult({
     return () => {
       isCancelled = true;
       if (channel) supabase.removeChannel(channel);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
   }, [meetingId]);
-
-  async function fetchMyTravelTimes(locs: RecommendedLocation[]) {
-    if (isFetchingTravelTimesRef.current) return;
-    isFetchingTravelTimesRef.current = true;
-
-    try {
-      const { data: myCoords } = await supabase
-        .from("member_coordinates")
-        .select("lat, lng")
-        .eq("meeting_id", meetingId)
-        .eq("user_id", currentUserId)
-        .single();
-
-      if (!myCoords) return;
-
-      const times = await Promise.all(
-        locs.map((loc) =>
-          fetchTransitTime(myCoords.lat, myCoords.lng, loc.lat, loc.lng),
-        ),
-      );
-      const result: Record<number, number> = {};
-      locs.forEach((loc, i) => {
-        result[loc.id] = times[i];
-      });
-      setTravelTimes(result);
-    } finally {
-      isFetchingTravelTimesRef.current = false;
-    }
-  }
 
   async function fetchData() {
     if (!meetingId) return;
@@ -217,22 +196,27 @@ export default function MeetingLocationResult({
     // 추천 장소 확인
     const { data: existing } = await supabase
       .from("recommended_location_coordinates")
-      .select("id, place_name, lat, lng")
+      .select("id, place_name, lat, lng, travel_times")
       .eq("meeting_id", meetingId);
 
     if (existing && existing.length > 0) {
-      const locs = existing.map((r) => ({
-        id: r.id,
-        placeName: r.place_name,
-        lat: r.lat,
-        lng: r.lng,
-      }));
-      setLocations(locs);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      setLocations(
+        existing.map((r) => ({
+          id: r.id,
+          placeName: r.place_name,
+          lat: r.lat,
+          lng: r.lng,
+          travelTimes: (r.travel_times ?? {}) as Record<string, number>,
+        })),
+      );
       setAllUpdated(true);
+      setIsWaitingForOther(false);
+      setError(null);
       setIsLoading(false);
-      fetchMyTravelTimes(locs);
       return;
     }
+    setLocations([]);
 
     // 업데이트 현황 확인
     const { data: members } = await supabase
@@ -261,6 +245,7 @@ export default function MeetingLocationResult({
 
     if (updated < freshMemberCount) {
       setAllUpdated(false);
+      setIsWaitingForOther(false);
       setIsLoading(false);
       return;
     }
@@ -272,13 +257,33 @@ export default function MeetingLocationResult({
   async function calculate() {
     if (isCalculatingRef.current) return;
     isCalculatingRef.current = true;
+
+    // 모임당 한 명만 계산하도록 락을 잡는다. 못 잡으면 다른 멤버가 계산 중이거나 이미 결과가 저장된 것.
+    const { data: token, error: claimError } = await supabase.rpc(
+      "claim_location_calculation",
+      { p_meeting_id: meetingId },
+    );
+    if (claimError || !token) {
+      isCalculatingRef.current = false;
+      if (claimError) {
+        setError("장소 계산을 시작하지 못했어요");
+      } else {
+        setIsWaitingForOther(true);
+        scheduleRetry();
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    setIsWaitingForOther(false);
     setIsCalculating(true);
     setError(null);
+    let shouldRefetch = false;
 
     try {
       const { data: memberCoordsData } = await supabase
         .from("member_coordinates")
-        .select("lat, lng")
+        .select("user_id, lat, lng")
         .eq("meeting_id", meetingId);
 
       const memberCoords: MemberCoord[] = memberCoordsData ?? [];
@@ -333,7 +338,12 @@ export default function MeetingLocationResult({
           );
           const maxTime = Math.max(...times);
           const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
-          return { ...candidate, maxTime, avgTime };
+          // 화면에서 다시 ODsay를 호출하지 않도록 멤버별 이동시간을 함께 저장한다
+          const travelTimes: Record<string, number> = {};
+          memberCoords.forEach((m, i) => {
+            if (times[i] < 9999) travelTimes[m.user_id] = times[i];
+          });
+          return { ...candidate, maxTime, avgTime, travelTimes };
         }),
       );
 
@@ -342,26 +352,47 @@ export default function MeetingLocationResult({
       );
       const top5 = scored.slice(0, 5);
 
-      await supabase
-        .from("recommended_locations")
-        .delete()
-        .eq("meeting_id", meetingId);
-      await supabase.from("recommended_locations").insert(
-        top5.map((c) => ({
-          meeting_id: meetingId,
-          recommended_location: `POINT(${c.lng} ${c.lat})`,
-          recommended_address: c.name,
-        })),
+      const { error: saveError } = await supabase.rpc(
+        "save_recommended_locations",
+        {
+          p_meeting_id: meetingId,
+          p_token: token,
+          p_locations: top5.map((c) => ({
+            place_name: c.name,
+            lat: c.lat,
+            lng: c.lng,
+            travel_times: c.travelTimes,
+          })),
+        },
       );
+      if (saveError) throw new Error("추천 장소를 저장하지 못했어요");
+      // RPC가 true면 저장된 결과를 불러오고, false면(계산 도중 출발지·일정이 바뀌어
+      // 락이 풀림) 바뀐 입력으로 다시 계산한다. 둘 다 fetchData가 처리한다.
+      shouldRefetch = true;
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "장소 계산 중 오류가 발생했어요",
       );
+      await supabase.rpc("release_location_calculation", {
+        p_meeting_id: meetingId,
+        p_token: token,
+      });
     } finally {
       isCalculatingRef.current = false;
       setIsCalculating(false);
       setIsLoading(false);
     }
+    if (shouldRefetch) await fetchData();
+  }
+
+  // 다른 멤버의 계산이 끝나면 보통 Realtime으로 결과가 오지만,
+  // 그 멤버가 계산 도중 탭을 닫으면 결과가 오지 않으므로 주기적으로 다시 확인한다.
+  function scheduleRetry() {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      fetchData();
+    }, CALC_RETRY_DELAY_MS);
   }
 
   const mapLocations: MapLocation[] = locations.map((l) => ({
@@ -387,7 +418,7 @@ export default function MeetingLocationResult({
         </div>
       )}
 
-      {(isLoading || isCalculating) && allUpdated && (
+      {(isLoading || isCalculating || isWaitingForOther) && allUpdated && (
         <div className="space-y-4 animate-pulse">
           <div className="w-full h-64 rounded-xl bg-[#f0f2f5] border border-[#e9ebee]" />
           <div className="space-y-2">
@@ -404,7 +435,7 @@ export default function MeetingLocationResult({
               </div>
             ))}
           </div>
-          {isCalculating && (
+          {(isCalculating || isWaitingForOther) && (
             <p className="text-xs text-center text-[#9ca3af]">
               최적 장소를 계산하고 있어요...
             </p>
@@ -412,7 +443,7 @@ export default function MeetingLocationResult({
         </div>
       )}
 
-      {!isLoading && !isCalculating && error && (
+      {!isLoading && !isCalculating && !isWaitingForOther && error && (
         <div className="text-center py-6">
           <p className="text-2xl mb-2">😔</p>
           <p className="text-sm text-[#6b7280]">{error}</p>
@@ -438,12 +469,12 @@ export default function MeetingLocationResult({
                   <p className="text-sm font-semibold text-[#374151] truncate">
                     {loc.placeName}
                   </p>
-                  {travelTimes[loc.id] !== undefined &&
-                    travelTimes[loc.id] < 9999 && (
-                      <p className="text-xs text-[#4ecdc4] mt-0.5">
-                        이동시간 약 {formatTravelTime(travelTimes[loc.id])}
-                      </p>
-                    )}
+                  {loc.travelTimes[currentUserId] !== undefined && (
+                    <p className="text-xs text-[#4ecdc4] mt-0.5">
+                      이동시간 약{" "}
+                      {formatTravelTime(loc.travelTimes[currentUserId])}
+                    </p>
+                  )}
                 </div>
                 <span className="text-base shrink-0">📍</span>
               </li>
