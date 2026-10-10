@@ -17,4 +17,4 @@
 - **백엔드**: [Supabase](https://supabase.com) (Postgres + Auth + Realtime + Row Level Security) — 별도 애플리케이션 서버 없이 클라이언트에서 직접 연동
 - **스타일링**: Tailwind CSS v4
 - **지도/장소**: Kakao Maps JS SDK, Kakao Local API
-- **대중교통 이동시간**: ODsay API
+- **대중교통 이동시간**: 카카오맵 대중교통 경로 조회 API

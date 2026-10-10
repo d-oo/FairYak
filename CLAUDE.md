@@ -23,7 +23,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 데이터 접근은 RLS에 전적으로 의존
 
-- 클라이언트 컴포넌트가 `@supabase/supabase-js`로 Postgres에 직접 접근하며, DB를 감싸는 API 레이어는 없다. 인가는 전부 RLS 정책이 담당한다. `src/app/api/**` 라우트는 서버 전용 `KAKAO_REST_API_KEY`를 숨기기 위해서만 존재한다 (ODsay 키는 의도적으로 브라우저에서 직접 쓴다).
+- 클라이언트 컴포넌트가 `@supabase/supabase-js`로 Postgres에 직접 접근하며, DB를 감싸는 API 레이어는 없다. 인가는 전부 RLS 정책이 담당한다. `src/app/api/**` 라우트는 서버 전용 `KAKAO_REST_API_KEY`를 숨기기 위해서만 존재한다.
+- 대중교통 이동시간은 `/api/transit/time`(카카오맵 대중교통 경로 조회, 하루 무료 1,000건)으로 조회한다. **카카오 정책상 경로 조회 결과는 DB 저장·임시 캐싱이 금지**이므로 이동시간을 저장하는 기능을 만들지 말고 필요할 때마다 조회할 것.
 - RLS에 막힌 select는 에러가 아니라 빈 배열을 반환한다. 쿼리 결과가 이유 없이 비어 있으면 정책부터 의심할 것.
 - `profiles`는 전체 공개가 아니므로 이메일로 사용자를 찾을 때는 `find_profile_by_email` RPC를 쓴다.
 - `meetings`에는 insert/update/delete 정책이 없다. 모임 생성·나가기는 `create_meeting`/`leave_meeting` RPC로 하며, 테이블 직접 조작으로 되돌리지 말 것.

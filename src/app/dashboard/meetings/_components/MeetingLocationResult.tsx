@@ -17,12 +17,9 @@ interface RecommendedLocation {
   placeName: string;
   lat: number;
   lng: number;
-  // user_id → 이동시간(분). ODsay 조회에 실패한 멤버는 키가 없다.
-  travelTimes: Record<string, number>;
 }
 
 interface MemberCoord {
-  user_id: string;
   lat: number;
   lng: number;
 }
@@ -86,21 +83,51 @@ async function fetchCandidates(
   return data.places ?? [];
 }
 
+// 이동시간 조회(/api/transit/time → 카카오 대중교통 경로 조회) 동시 요청 수
+const TRANSIT_CONCURRENCY = 5;
+
+// 일일 쿼터 초과 시 모든 이동시간이 실패값이 되어 순위가 무의미해지므로 계산 자체를 중단한다
+class TransitQuotaExceededError extends Error {
+  constructor() {
+    super("오늘 이동시간 조회 한도를 초과했어요. 내일 다시 시도해 주세요");
+  }
+}
+
+// 대중교통 최단 소요시간(분). 경로가 없거나 조회에 실패하면 9999.
+// 카카오 정책상 결과를 저장·캐시할 수 없으므로 필요할 때마다 조회한다.
 async function fetchTransitTime(
   startLat: number,
   startLng: number,
   endLat: number,
   endLng: number,
 ): Promise<number> {
-  const apiKey = encodeURIComponent(
-    process.env.NEXT_PUBLIC_ODSAY_API_KEY ?? "",
+  const res = await fetch(
+    `/api/transit/time?start_lat=${startLat}&start_lng=${startLng}&end_lat=${endLat}&end_lng=${endLng}`,
   );
-  const url = `https://api.odsay.com/v1/api/searchPubTransPathT?SX=${startLng}&SY=${startLat}&EX=${endLng}&EY=${endLat}&apiKey=${apiKey}`;
-  const res = await fetch(url);
+  if (res.status === 429) throw new TransitQuotaExceededError();
   if (!res.ok) return 9999;
   const data = await res.json();
-  if (data.error) return 9999;
-  return data.result?.path?.[0]?.info?.totalTime ?? 9999;
+  return data.minutes ?? 9999;
+}
+
+// 동시에 최대 limit개씩만 실행하면서 결과 순서는 입력 순서대로 유지한다
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+  return results;
 }
 
 export default function MeetingLocationResult({
@@ -111,10 +138,16 @@ export default function MeetingLocationResult({
   const supabase = createClient();
   const isCalculatingRef = useRef(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 마지막으로 내 이동시간을 조회한 (내 출발지 + 추천 장소 목록). 같은 조합이면 다시 조회하지 않는다.
+  const travelTimesKeyRef = useRef<string | null>(null);
 
   const [locations, setLocations] = useState<RecommendedLocation[]>([]);
   const [memberLocations, setMemberLocations] = useState<MemberMapLocation[]>(
     [],
+  );
+  // 추천 장소 id → 내 이동시간(분). 저장하지 않고 화면에 있는 동안만 들고 있는다.
+  const [myTravelTimes, setMyTravelTimes] = useState<Record<number, number>>(
+    {},
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -164,6 +197,32 @@ export default function MeetingLocationResult({
     };
   }, [meetingId]);
 
+  // 추천 결과 저장 시 Realtime 이벤트가 여러 번 와서 fetchData가 반복 호출되므로,
+  // 내 출발지와 추천 장소 목록이 그대로면 다시 조회하지 않는다.
+  async function fetchMyTravelTimes(
+    myCoord: { lat: number; lng: number },
+    locs: RecommendedLocation[],
+  ) {
+    const key = `${myCoord.lat},${myCoord.lng}|${locs.map((l) => l.id).join(",")}`;
+    if (travelTimesKeyRef.current === key) return;
+    travelTimesKeyRef.current = key;
+
+    try {
+      const times = await mapWithConcurrency(locs, TRANSIT_CONCURRENCY, (loc) =>
+        fetchTransitTime(myCoord.lat, myCoord.lng, loc.lat, loc.lng),
+      );
+      if (travelTimesKeyRef.current !== key) return;
+      const result: Record<number, number> = {};
+      locs.forEach((loc, i) => {
+        if (times[i] < 9999) result[loc.id] = times[i];
+      });
+      setMyTravelTimes(result);
+    } catch {
+      // 쿼터 초과 등으로 실패하면 이동시간만 표시하지 않는다. 다음 fetchData에서 다시 시도한다.
+      travelTimesKeyRef.current = null;
+    }
+  }
+
   async function fetchData() {
     if (!meetingId) return;
 
@@ -196,20 +255,22 @@ export default function MeetingLocationResult({
     // 추천 장소 확인
     const { data: existing } = await supabase
       .from("recommended_location_coordinates")
-      .select("id, place_name, lat, lng, travel_times")
+      .select("id, place_name, lat, lng")
       .eq("meeting_id", meetingId);
 
     if (existing && existing.length > 0) {
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-      setLocations(
-        existing.map((r) => ({
-          id: r.id,
-          placeName: r.place_name,
-          lat: r.lat,
-          lng: r.lng,
-          travelTimes: (r.travel_times ?? {}) as Record<string, number>,
-        })),
+      const locs = existing.map((r) => ({
+        id: r.id,
+        placeName: r.place_name,
+        lat: r.lat,
+        lng: r.lng,
+      }));
+      setLocations(locs);
+      const myCoord = (memberCoords ?? []).find(
+        (m) => m.user_id === currentUserId,
       );
+      if (myCoord) fetchMyTravelTimes(myCoord, locs);
       setAllUpdated(true);
       setIsWaitingForOther(false);
       setError(null);
@@ -283,7 +344,7 @@ export default function MeetingLocationResult({
     try {
       const { data: memberCoordsData } = await supabase
         .from("member_coordinates")
-        .select("user_id, lat, lng")
+        .select("lat, lng")
         .eq("meeting_id", meetingId);
 
       const memberCoords: MemberCoord[] = memberCoordsData ?? [];
@@ -329,23 +390,26 @@ export default function MeetingLocationResult({
 
       const candidates = deduplicateCandidates(rawCandidates);
 
-      const scored = await Promise.all(
-        candidates.map(async (candidate) => {
-          const times = await Promise.all(
-            memberCoords.map((m) =>
-              fetchTransitTime(m.lat, m.lng, candidate.lat, candidate.lng),
-            ),
-          );
-          const maxTime = Math.max(...times);
-          const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
-          // 화면에서 다시 ODsay를 호출하지 않도록 멤버별 이동시간을 함께 저장한다
-          const travelTimes: Record<string, number> = {};
-          memberCoords.forEach((m, i) => {
-            if (times[i] < 9999) travelTimes[m.user_id] = times[i];
-          });
-          return { ...candidate, maxTime, avgTime, travelTimes };
-        }),
+      // (후보 × 멤버) 쌍 전체를 동시 요청 수 제한 아래에서 조회한다
+      const pairs = candidates.flatMap((candidate) =>
+        memberCoords.map((m) => ({ candidate, m })),
       );
+      const pairTimes = await mapWithConcurrency(
+        pairs,
+        TRANSIT_CONCURRENCY,
+        ({ candidate, m }) =>
+          fetchTransitTime(m.lat, m.lng, candidate.lat, candidate.lng),
+      );
+
+      const scored = candidates.map((candidate, ci) => {
+        const times = pairTimes.slice(
+          ci * memberCoords.length,
+          (ci + 1) * memberCoords.length,
+        );
+        const maxTime = Math.max(...times);
+        const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
+        return { ...candidate, maxTime, avgTime };
+      });
 
       scored.sort((a, b) =>
         a.maxTime !== b.maxTime ? a.maxTime - b.maxTime : a.avgTime - b.avgTime,
@@ -357,11 +421,11 @@ export default function MeetingLocationResult({
         {
           p_meeting_id: meetingId,
           p_token: token,
+          // 이동시간은 카카오 정책상 저장할 수 없으므로 순위 결과(장소)만 저장한다
           p_locations: top5.map((c) => ({
             place_name: c.name,
             lat: c.lat,
             lng: c.lng,
-            travel_times: c.travelTimes,
           })),
         },
       );
@@ -469,10 +533,9 @@ export default function MeetingLocationResult({
                   <p className="text-sm font-semibold text-[#374151] truncate">
                     {loc.placeName}
                   </p>
-                  {loc.travelTimes[currentUserId] !== undefined && (
+                  {myTravelTimes[loc.id] !== undefined && (
                     <p className="text-xs text-[#4ecdc4] mt-0.5">
-                      이동시간 약{" "}
-                      {formatTravelTime(loc.travelTimes[currentUserId])}
+                      이동시간 약 {formatTravelTime(myTravelTimes[loc.id])}
                     </p>
                   )}
                 </div>
