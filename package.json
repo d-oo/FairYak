@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "data:stations": "node scripts/build-stations.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

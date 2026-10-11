@@ -16,6 +16,8 @@ declare global {
           map?: KakaoMapInstance;
           position: KakaoLatLng;
           image?: KakaoMarkerImage;
+          title?: string;
+          zIndex?: number;
         }) => KakaoMarker;
         MarkerImage: new (src: string, size: KakaoSize) => KakaoMarkerImage;
         Size: new (width: number, height: number) => KakaoSize;
@@ -27,7 +29,7 @@ declare global {
           addListener: (
             target: unknown,
             type: string,
-            handler: () => void,
+            handler: (mouseEvent: KakaoMouseEvent) => void,
           ) => void;
         };
       };
@@ -39,13 +41,23 @@ declare global {
     setCenter: (latlng: KakaoLatLng) => void;
   }
 
-  interface KakaoLatLng {}
+  interface KakaoLatLng {
+    getLat: () => number;
+    getLng: () => number;
+  }
 
   interface KakaoLatLngBounds {
     extend: (latlng: KakaoLatLng) => void;
   }
 
-  interface KakaoMarker {}
+  // 지도 click 등 마우스 이벤트 핸들러가 받는 인자
+  interface KakaoMouseEvent {
+    latLng: KakaoLatLng;
+  }
+
+  interface KakaoMarker {
+    setMap: (map: KakaoMapInstance | null) => void;
+  }
 
   interface KakaoMarkerImage {}
 

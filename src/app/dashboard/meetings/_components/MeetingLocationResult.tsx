@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { mapWithConcurrency } from "@/utils/concurrency";
 import dynamic from "next/dynamic";
 import { type MapLocation, type MemberMapLocation } from "./KakaoMap";
 
@@ -19,7 +20,10 @@ interface RecommendedLocation {
   lng: number;
 }
 
-interface MemberCoord {
+// /api/location/recommend가 돌려주는 추천 역 (공공데이터 역 목록 기준)
+interface RecommendedStation {
+  id: string;
+  name: string;
   lat: number;
   lng: number;
 }
@@ -27,11 +31,11 @@ interface MemberCoord {
 // 다른 멤버가 계산 중일 때 결과를 다시 확인하는 간격
 const CALC_RETRY_DELAY_MS = 20000;
 
-interface Candidate {
-  name: string;
-  lat: number;
-  lng: number;
-}
+// /api/location/recommend 실패 코드별 안내 문구
+const RECOMMEND_ERROR_MESSAGES: Record<number, string> = {
+  429: "오늘 이동시간 조회 한도를 초과했어요. 내일 다시 시도해 주세요",
+  422: "대중교통으로 모두가 갈 수 있는 역을 찾지 못했어요",
+};
 
 interface Props {
   meetingId: number;
@@ -48,86 +52,23 @@ function formatTravelTime(minutes: number): string {
   return `${minutes}분`;
 }
 
-function deduplicateCandidates(candidates: Candidate[]): Candidate[] {
-  const groups = new Map<string, Candidate[]>();
-  for (const c of candidates) {
-    const baseName = c.name.split(" ")[0];
-    if (!groups.has(baseName)) groups.set(baseName, []);
-    groups.get(baseName)!.push(c);
-  }
-  return [...groups.values()].map((group) => {
-    if (group.length === 1) return group[0];
-    const baseName = group[0].name.split(" ")[0];
-    const lines = group
-      .map((c) => c.name.split(" ").slice(1).join(" "))
-      .filter(Boolean);
-    return {
-      name: `${baseName} ${lines.join(", ")}`,
-      lat: group[0].lat,
-      lng: group[0].lng,
-    };
-  });
-}
-
-async function fetchCandidates(
-  lat: number,
-  lng: number,
-  radius: number,
-  category: string,
-): Promise<Candidate[]> {
-  const res = await fetch(
-    `/api/location/candidates?lat=${lat}&lng=${lng}&radius=${radius}&category=${category}`,
-  );
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.places ?? [];
-}
-
-// 이동시간 조회(/api/transit/time → 카카오 대중교통 경로 조회) 동시 요청 수
+// 내 이동시간 조회(/api/transit/time → 카카오 대중교통 경로 조회) 동시 요청 수
 const TRANSIT_CONCURRENCY = 5;
 
-// 일일 쿼터 초과 시 모든 이동시간이 실패값이 되어 순위가 무의미해지므로 계산 자체를 중단한다
-class TransitQuotaExceededError extends Error {
-  constructor() {
-    super("오늘 이동시간 조회 한도를 초과했어요. 내일 다시 시도해 주세요");
-  }
-}
-
-// 대중교통 최단 소요시간(분). 경로가 없거나 조회에 실패하면 9999.
+// 대중교통 최단 소요시간(분). 경로가 없거나 조회에 실패하면 null.
 // 카카오 정책상 결과를 저장·캐시할 수 없으므로 필요할 때마다 조회한다.
 async function fetchTransitTime(
   startLat: number,
   startLng: number,
   endLat: number,
   endLng: number,
-): Promise<number> {
+): Promise<number | null> {
   const res = await fetch(
     `/api/transit/time?start_lat=${startLat}&start_lng=${startLng}&end_lat=${endLat}&end_lng=${endLng}`,
   );
-  if (res.status === 429) throw new TransitQuotaExceededError();
-  if (!res.ok) return 9999;
+  if (!res.ok) return null;
   const data = await res.json();
-  return data.minutes ?? 9999;
-}
-
-// 동시에 최대 limit개씩만 실행하면서 결과 순서는 입력 순서대로 유지한다
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  async function worker() {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i]);
-    }
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, worker),
-  );
-  return results;
+  return data.minutes ?? null;
 }
 
 export default function MeetingLocationResult({
@@ -214,11 +155,12 @@ export default function MeetingLocationResult({
       if (travelTimesKeyRef.current !== key) return;
       const result: Record<number, number> = {};
       locs.forEach((loc, i) => {
-        if (times[i] < 9999) result[loc.id] = times[i];
+        const t = times[i];
+        if (t !== null) result[loc.id] = t;
       });
       setMyTravelTimes(result);
     } catch {
-      // 쿼터 초과 등으로 실패하면 이동시간만 표시하지 않는다. 다음 fetchData에서 다시 시도한다.
+      // 네트워크 오류 등으로 실패하면 이동시간만 표시하지 않는다. 다음 fetchData에서 다시 시도한다.
       travelTimesKeyRef.current = null;
     }
   }
@@ -256,7 +198,8 @@ export default function MeetingLocationResult({
     const { data: existing } = await supabase
       .from("recommended_location_coordinates")
       .select("id, place_name, lat, lng")
-      .eq("meeting_id", meetingId);
+      .eq("meeting_id", meetingId)
+      .order("rank");
 
     if (existing && existing.length > 0) {
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
@@ -342,90 +285,32 @@ export default function MeetingLocationResult({
     let shouldRefetch = false;
 
     try {
-      const { data: memberCoordsData } = await supabase
-        .from("member_coordinates")
-        .select("lat, lng")
-        .eq("meeting_id", meetingId);
-
-      const memberCoords: MemberCoord[] = memberCoordsData ?? [];
-      if (memberCoords.length === 0)
-        throw new Error("멤버 좌표를 가져올 수 없어요");
-
-      const centroid = {
-        lat:
-          memberCoords.reduce((sum, m) => sum + m.lat, 0) / memberCoords.length,
-        lng:
-          memberCoords.reduce((sum, m) => sum + m.lng, 0) / memberCoords.length,
-      };
-
-      let rawCandidates: Candidate[] = [];
-      for (const radius of [10000, 20000, 30000]) {
-        const results = await fetchCandidates(
-          centroid.lat,
-          centroid.lng,
-          radius,
-          "SW8",
-        );
-        if (results.length >= 1) {
-          rawCandidates = results;
-          break;
-        }
-      }
-      if (rawCandidates.length < 1) {
-        for (const radius of [10000, 20000, 30000]) {
-          const results = await fetchCandidates(
-            centroid.lat,
-            centroid.lng,
-            radius,
-            "AT4",
-          );
-          if (results.length >= 1) {
-            rawCandidates = results;
-            break;
-          }
-        }
-      }
-      if (rawCandidates.length === 0)
-        throw new Error("주변에 적합한 장소를 찾을 수 없어요");
-
-      const candidates = deduplicateCandidates(rawCandidates);
-
-      // (후보 × 멤버) 쌍 전체를 동시 요청 수 제한 아래에서 조회한다
-      const pairs = candidates.flatMap((candidate) =>
-        memberCoords.map((m) => ({ candidate, m })),
-      );
-      const pairTimes = await mapWithConcurrency(
-        pairs,
-        TRANSIT_CONCURRENCY,
-        ({ candidate, m }) =>
-          fetchTransitTime(m.lat, m.lng, candidate.lat, candidate.lng),
-      );
-
-      const scored = candidates.map((candidate, ci) => {
-        const times = pairTimes.slice(
-          ci * memberCoords.length,
-          (ci + 1) * memberCoords.length,
-        );
-        const maxTime = Math.max(...times);
-        const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
-        return { ...candidate, maxTime, avgTime };
+      // 후보 선정·이동시간 조회·순위 계산은 서버에서 한다 (카카오 키와 역 목록이 서버에 있음)
+      const res = await fetch("/api/location/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId }),
       });
-
-      scored.sort((a, b) =>
-        a.maxTime !== b.maxTime ? a.maxTime - b.maxTime : a.avgTime - b.avgTime,
-      );
-      const top5 = scored.slice(0, 5);
+      if (!res.ok)
+        throw new Error(
+          RECOMMEND_ERROR_MESSAGES[res.status] ??
+            "장소 계산 중 오류가 발생했어요",
+        );
+      const { stations }: { stations: RecommendedStation[] } =
+        await res.json();
 
       const { error: saveError } = await supabase.rpc(
         "save_recommended_locations",
         {
           p_meeting_id: meetingId,
           p_token: token,
-          // 이동시간은 카카오 정책상 저장할 수 없으므로 순위 결과(장소)만 저장한다
-          p_locations: top5.map((c) => ({
-            place_name: c.name,
-            lat: c.lat,
-            lng: c.lng,
+          // 공공데이터 역 정보와 순위만 저장한다 (카카오 응답인 이동시간·장소명은 저장 불가)
+          p_locations: stations.map((s, i) => ({
+            station_id: s.id,
+            rank: i + 1,
+            place_name: s.name,
+            lat: s.lat,
+            lng: s.lng,
           })),
         },
       );
