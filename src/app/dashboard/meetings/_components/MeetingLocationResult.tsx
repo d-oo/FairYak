@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { mapWithConcurrency } from "@/utils/concurrency";
 import dynamic from "next/dynamic";
-import { type MapLocation, type MemberMapLocation } from "./KakaoMap";
+import { type MapLocation, type MemberMapLocation } from "@/app/_components/KakaoMap";
 
-const KakaoMap = dynamic(() => import("./KakaoMap"), {
+const KakaoMap = dynamic(() => import("@/app/_components/KakaoMap"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-64 rounded-xl bg-[#f0f2f5] border border-[#e9ebee] animate-pulse" />

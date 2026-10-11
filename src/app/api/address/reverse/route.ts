@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { isLoggedInOrExhibition } from "@/utils/exhibition";
 
 export async function GET(request: Request) {
+  // 외부에서 카카오 쿼터를 소진하지 못하도록 로그인 사용자 또는 전시 체험 모드만 허용
+  if (!(await isLoggedInOrExhibition())) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const lat = searchParams.get("lat");
   const lng = searchParams.get("lng");

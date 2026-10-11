@@ -12,13 +12,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* 앱이 다크 모드를 지원하지 않으므로 OS 다크 모드에서도 밝은 색을 유지한다.
+   (create-next-app 기본값의 다크 모드 설정이 남아 있어, 글자색을 지정하지 않은 요소가
+   흰 배경 위에 거의 흰 글자로 보였음) */
 body {
   background: var(--background);
   color: var(--foreground);

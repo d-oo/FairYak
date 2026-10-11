@@ -21,6 +21,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `src/utils/supabase/middleware.ts`에 라우트 보호용 미들웨어가 있지만 **이를 연결하는 루트 `middleware.ts`가 없어 실제로는 동작하지 않는다.** 실제 인증 검사는 각 보호된 레이아웃/페이지(예: `src/app/dashboard/layout.tsx`)가 서버 측에서 `auth.getUser()`로 재검사하고 비로그인 시 `redirect("/")`하는 쪽이다. Supabase 클라이언트는 실행 위치(브라우저/서버/미들웨어)에 맞는 `src/utils/supabase/*` 팩토리를 쓴다.
 
+예외로 졸업전시 체험 모드(`/try`, `/api/try/*`)는 로그인 없이 전시용 키 쿠키로 접근한다(`src/utils/exhibition.ts`, 환경변수 `EXHIBITION_KEY`). 카카오 쿼터를 쓰는 API 라우트는 `isLoggedInOrExhibition()` 등으로 로그인 또는 전시 쿠키를 확인할 것.
+
 ### 데이터 접근은 RLS에 전적으로 의존
 
 - 클라이언트 컴포넌트가 `@supabase/supabase-js`로 Postgres에 직접 접근하며, DB를 감싸는 API 레이어는 없다. 인가는 전부 RLS 정책이 담당한다. `src/app/api/**` 라우트는 서버 전용 `KAKAO_REST_API_KEY`를 숨기기 위해 존재하며, 카카오 호출 로직은 `src/utils/kakao/*`에 있다.

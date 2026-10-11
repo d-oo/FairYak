@@ -11,9 +11,14 @@ export type AddressResult = {
 
 interface Props {
   onSelect: (result: AddressResult) => void;
+  // 전시용 체험 화면처럼 기기 위치가 의미 없는 곳에서는 "현재 위치 사용"을 숨긴다
+  showCurrentLocation?: boolean;
 }
 
-export default function AddressSearch({ onSelect }: Props) {
+export default function AddressSearch({
+  onSelect,
+  showCurrentLocation = true,
+}: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AddressResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -199,16 +204,18 @@ export default function AddressSearch({ onSelect }: Props) {
       )}
 
       {/* 현재 위치 사용 버튼 */}
-      <button
-        type="button"
-        onClick={handleGps}
-        disabled={isGpsLoading}
-        className="flex items-center gap-2 text-xs text-[#4ecdc4] font-semibold hover:text-[#3dbdb4] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <span>
-          {isGpsLoading ? "위치 가져오는 중..." : "📍 현재 위치 사용"}
-        </span>
-      </button>
+      {showCurrentLocation && (
+        <button
+          type="button"
+          onClick={handleGps}
+          disabled={isGpsLoading}
+          className="flex items-center gap-2 text-xs text-[#4ecdc4] font-semibold hover:text-[#3dbdb4] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span>
+            {isGpsLoading ? "위치 가져오는 중..." : "📍 현재 위치 사용"}
+          </span>
+        </button>
+      )}
 
       {/* 에러 */}
       {error && (

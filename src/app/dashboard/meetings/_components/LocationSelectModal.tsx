@@ -3,7 +3,7 @@
 import { useState } from "react";
 import AddressSearch, {
   type AddressResult,
-} from "@/app/dashboard/_components/AddressSearch";
+} from "@/app/_components/AddressSearch";
 
 interface SavedLocation {
   name: string;

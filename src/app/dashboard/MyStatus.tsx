@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Calendar from "@/app/dashboard/_components/Calendar";
-import { type AddressResult } from "@/app/dashboard/_components/AddressSearch";
+import { type AddressResult } from "@/app/_components/AddressSearch";
 import AddLocationModal from "@/app/dashboard/_components/AddLocationModal";
 
 type Location = { name: string; address: string };
