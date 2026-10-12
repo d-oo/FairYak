@@ -5,6 +5,11 @@ import { createClient } from "@/utils/supabase/client";
 import InviteSearchPanel, {
   type InviteTarget,
 } from "@/app/dashboard/_components/InviteSearchPanel";
+import Modal, {
+  MODAL_ERROR_CLASS,
+  MODAL_INPUT_CLASS,
+  MODAL_LABEL_CLASS,
+} from "@/app/dashboard/_components/Modal";
 
 interface MeetingItem {
   meetingId: number;
@@ -90,71 +95,40 @@ export default function CreateMeetingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#f0f0f0] sticky top-0 bg-white rounded-t-2xl">
-          <h2 className="text-base font-bold text-[#0d1f2d]">모임 만들기</h2>
-          <button
-            onClick={onClose}
-            className="text-[#9ca3af] hover:text-[#374151] transition-colors cursor-pointer text-xl leading-none"
-          >
-            ✕
-          </button>
-        </div>
+    <Modal
+      title="모임 만들기"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      primaryLabel={isSubmitting ? "만드는 중..." : "모임 만들기"}
+      primaryDisabled={!meetingName.trim() || isSubmitting}
+    >
+      <label className="flex flex-col gap-1.5">
+        <span className={MODAL_LABEL_CLASS}>모임 이름</span>
+        <input
+          type="text"
+          value={meetingName}
+          onChange={(e) => setMeetingName(e.target.value)}
+          placeholder="예: 대학 동창 모임"
+          autoFocus
+          autoComplete="off"
+          className={MODAL_INPUT_CLASS}
+        />
+      </label>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
-          <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-[#374151]">
-              모임 이름
-            </label>
-            <input
-              type="text"
-              value={meetingName}
-              onChange={(e) => setMeetingName(e.target.value)}
-              placeholder="예: 대학 동창 모임"
-              autoFocus
-              autoComplete="off"
-              className="w-full px-4 py-3 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] text-[#0d1f2d] placeholder-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#4ecdc4] focus:border-transparent focus:bg-white transition-all text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#374151]">
-              인원 초대{" "}
-              <span className="text-xs text-[#9ca3af] font-normal">(선택)</span>
-            </label>
-            <InviteSearchPanel
-              userEmail={userEmail}
-              inviteList={inviteList}
-              onListChange={setInviteList}
-              onSearch={handleSearch}
-            />
-          </div>
-
-          {submitError && (
-            <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-xl">
-              {submitError}
-            </p>
-          )}
-
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-[#e5e7eb] text-sm font-semibold text-[#6b7280] hover:bg-[#f8f9fa] transition-colors cursor-pointer"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={!meetingName.trim() || isSubmitting}
-              className="flex-1 py-3 rounded-xl bg-[#0d1f2d] text-white text-sm font-bold hover:bg-[#1a3244] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "만드는 중..." : "모임 만들기"}
-            </button>
-          </div>
-        </form>
+      <div className="flex flex-col gap-2">
+        <span className={MODAL_LABEL_CLASS}>
+          인원 초대{" "}
+          <span className="text-xs font-normal text-faint">(선택)</span>
+        </span>
+        <InviteSearchPanel
+          userEmail={userEmail}
+          inviteList={inviteList}
+          onListChange={setInviteList}
+          onSearch={handleSearch}
+        />
       </div>
-    </div>
+
+      {submitError && <p className={MODAL_ERROR_CLASS}>{submitError}</p>}
+    </Modal>
   );
 }

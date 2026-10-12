@@ -1,22 +1,104 @@
 @import "tailwindcss";
 
+/* 새 시안(design_handoff_fairyak_redesign, 확정안 1d) 디자인 토큰 */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #1c1b18;
+  --ink-hover: #3a3832;
+  --paper: #f4f1ea;
+  --page: #ece8de;
+  --map-bg: #e6e2d8;
+  --input: #fbfaf6;
+  --muted: #6f6b62;
+  --faint: #a39e92;
+  --disabled: #bdb8ac;
+  --rule: #d8d3c7;
+  --track: #e3ded3;
+  --accent: oklch(0.6 0.19 35);
+  --accent-hover: oklch(0.55 0.19 35);
+  --accent-text: oklch(0.52 0.19 35);
+  --accent-text-strong: oklch(0.47 0.17 35);
+  --accent-text-deep: oklch(0.42 0.14 35);
+  --accent-tint: oklch(0.9 0.05 50);
+  --accent-soft: #f8e9dd;
+  --error-bg: #fbefe6;
+  --bubble-bg: #fff8f1;
+  --row-hover: #efe7db;
+  --saturday: oklch(0.48 0.09 250);
+  --overlay: rgba(28, 27, 24, 0.45);
+
+  /* 입력창 포커스 링 */
+  --focus-ring: 0 0 0 3px oklch(0.6 0.19 35 / 0.3);
+  /* 달력의 오늘 표시 */
+  --today-ring: inset 0 0 0 2px #1c1b18;
+  /* 지도 핀·썸네일 핀 헤일로 */
+  --pin-halo: 0 0 0 2px #f4f1ea;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--ink);
+  --color-ink-hover: var(--ink-hover);
+  --color-paper: var(--paper);
+  --color-page: var(--page);
+  --color-map-bg: var(--map-bg);
+  --color-input: var(--input);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-disabled: var(--disabled);
+  --color-rule: var(--rule);
+  --color-track: var(--track);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-text-strong: var(--accent-text-strong);
+  --color-accent-text-deep: var(--accent-text-deep);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-soft: var(--accent-soft);
+  --color-error-bg: var(--error-bg);
+  --color-bubble-bg: var(--bubble-bg);
+  --color-row-hover: var(--row-hover);
+  --color-saturday: var(--saturday);
+  --color-overlay: var(--overlay);
+
+  --shadow-focus: var(--focus-ring);
+  --shadow-today: var(--today-ring);
+  --shadow-halo: var(--pin-halo);
+
+  /* 숫자·날짜 등 기계적 표기. 한글이 섞이면 IBM Plex Sans KR로 대체된다 */
+  --font-sans: var(--font-plex-sans), sans-serif;
+  --font-mono: var(--font-plex-mono), var(--font-plex-sans), monospace;
 }
 
-/* 앱이 다크 모드를 지원하지 않으므로 OS 다크 모드에서도 밝은 색을 유지한다.
-   (create-next-app 기본값의 다크 모드 설정이 남아 있어, 글자색을 지정하지 않은 요소가
-   흰 배경 위에 거의 흰 글자로 보였음) */
+@theme {
+  /* 시안의 모바일 기준점. 760px 이상이면 wide: 변형을 쓴다 */
+  --breakpoint-wide: 760px;
+
+  /* 시안은 행간을 따로 지정한 곳 외에는 브라우저 기본값(normal)을 쓴다 */
+  --text-xs--line-height: normal;
+  --text-sm--line-height: normal;
+  --text-base--line-height: normal;
+  --text-lg--line-height: normal;
+  --text-xl--line-height: normal;
+  --text-2xl--line-height: normal;
+  --text-3xl--line-height: normal;
+}
+
+/* 세로 스크롤바를 항상 표시한다. 화면 길이에 따라 스크롤바가 생겼다 사라지면
+   일정 관리·모임 목록 탭을 오갈 때 콘텐츠 폭과 헤더가 좌우로 흔들린다
+   (scrollbar-gutter: stable은 환경에 따라 자리가 비워지지 않아 쓰지 않는다) */
+html {
+  overflow-y: scroll;
+}
+
+/* 앱이 다크 모드를 지원하지 않으므로 OS 다크 모드에서도 밝은 색을 유지한다. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), sans-serif;
+  line-height: normal;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+input::placeholder {
+  color: var(--faint);
 }

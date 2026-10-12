@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import SectionHeader from "@/app/_components/SectionHeader";
 
 interface LogItem {
   id: number;
@@ -14,21 +15,18 @@ interface Props {
   meetingId: number;
 }
 
-function getLogDisplay(
-  type: string,
-  userName: string | null,
-): { icon: string; text: string } {
+function getLogText(type: string, userName: string | null): string {
   switch (type) {
     case "member_joined":
-      return { icon: "👋", text: `${userName}님이 참여했어요` };
+      return `${userName}님이 참여했어요`;
     case "member_left":
-      return { icon: "🚪", text: `${userName}님이 나갔어요` };
+      return `${userName}님이 나갔어요`;
     case "updated":
-      return { icon: "🔄", text: `${userName}님이 업데이트했어요` };
+      return `${userName}님이 업데이트했어요`;
     case "result_updated":
-      return { icon: "✨", text: "추천 결과가 업데이트됐어요" };
+      return "추천 결과가 업데이트됐어요";
     default:
-      return { icon: "📝", text: "알 수 없는 활동" };
+      return "알 수 없는 활동";
   }
 }
 
@@ -116,50 +114,43 @@ export default function MeetingLogSection({ meetingId }: Props) {
       isCancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [meetingId]);
+  }, [meetingId, supabase]);
 
   return (
-    <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-      <h2 className="text-sm font-bold text-[#0d1f2d] mb-4">활동 로그</h2>
+    <section className="border border-ink bg-paper">
+      <SectionHeader title="활동 로그" />
 
       {isLoading && (
-        <div className="space-y-3 animate-pulse">
+        <div className="flex animate-pulse flex-col gap-px bg-rule">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#f0f2f5] shrink-0" />
-              <div className="flex-1 space-y-1.5">
-                <div className="h-3 bg-[#f0f2f5] rounded w-48" />
-                <div className="h-2.5 bg-[#f0f2f5] rounded w-16" />
-              </div>
+            <div
+              key={i}
+              className="grid grid-cols-[72px_minmax(0,1fr)] bg-paper px-4.5 py-2.5"
+            >
+              <div className="mt-0.5 h-3 w-10 bg-track" />
+              <div className="h-4 w-2/3 bg-track" />
             </div>
           ))}
         </div>
       )}
 
       {!isLoading && logs.length === 0 && (
-        <p className="text-sm text-[#9ca3af] text-center py-4">
-          아직 활동이 없어요
-        </p>
+        <p className="p-4.5 text-center text-sm text-faint">아직 활동이 없어요</p>
       )}
 
       {!isLoading && logs.length > 0 && (
-        <ul className="space-y-3">
-          {logs.map((log) => {
-            const { icon, text } = getLogDisplay(log.type, log.userName);
-            return (
-              <li key={log.id} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#f0f2f5] flex items-center justify-center text-sm shrink-0">
-                  {icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-[#374151]">{text}</p>
-                </div>
-                <span className="text-xs text-[#9ca3af] shrink-0">
-                  {formatTime(log.createdAt)}
-                </span>
-              </li>
-            );
-          })}
+        <ul className="flex flex-col gap-px bg-rule">
+          {logs.map((log) => (
+            <li
+              key={log.id}
+              className="grid grid-cols-[72px_minmax(0,1fr)] bg-paper px-4.5 py-2.5 text-sm"
+            >
+              <span className="pt-0.5 font-mono text-xs text-faint">
+                {formatTime(log.createdAt)}
+              </span>
+              <span>{getLogText(log.type, log.userName)}</span>
+            </li>
+          ))}
         </ul>
       )}
     </section>

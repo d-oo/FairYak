@@ -95,9 +95,10 @@ export default async function MeetingDetailPage({
         name:
           (m.profiles as unknown as { name: string } | null)?.name ??
           "알 수 없음",
-        hasLocation:
+        isUpdated:
           m.departure_location !== null &&
           (futureSchedules ?? []).some((s) => s.user_id === m.user_id),
+        hasDeparture: m.departure_location !== null,
         departureAddress: m.departure_address,
       }))}
       initialPendingInvites={pendingInvites}

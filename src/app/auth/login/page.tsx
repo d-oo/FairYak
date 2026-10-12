@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import {
+  ERROR_CLASS,
+  INPUT_CLASS,
+  LINK_CLASS,
+  SUBMIT_CLASS,
+} from "@/app/auth/_components/styles";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,98 +41,55 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-12 bg-[#f8f9fa]">
-      <div className="w-full max-w-md mx-auto">
-        {/* 로고 */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-sm font-semibold text-[#6b7280] hover:text-[#0d1f2d] transition-colors cursor-pointer"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="7 4 10 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-3.5 h-3.5"
+    <>
+      <h1 className="text-[32px] font-semibold tracking-[-0.03em]">로그인</h1>
+
+      <form onSubmit={handleLogin} className="mt-7 flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold">이메일</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="hello@example.com"
+            required
+            className={INPUT_CLASS}
+          />
+        </label>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[13px] font-semibold">비밀번호</span>
+            <button
+              type="button"
+              className="cursor-pointer text-xs text-muted underline underline-offset-3"
             >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            <span>페어약</span>
-          </Link>
-        </div>
-
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-[#0d1f2d]">로그인</h2>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1">
-            <label className="block text-sm font-semibold text-[#374151]">
-              이메일
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="hello@example.com"
-              required
-              className="w-full px-4 py-3 rounded-xl border border-[#e5e7eb] bg-white text-[#0d1f2d] placeholder-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#4ecdc4] focus:border-transparent transition-all"
-            />
+              비밀번호를 잊으셨나요?
+            </button>
           </div>
-
-          <div className="space-y-1">
-            <div className="flex justify-between items-center">
-              <label className="block text-sm font-semibold text-[#374151]">
-                비밀번호
-              </label>
-              <button
-                type="button"
-                className="text-xs text-[#4ecdc4] hover:underline cursor-pointer"
-              >
-                비밀번호를 잊으셨나요?
-              </button>
-            </div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              className="w-full px-4 py-3 rounded-xl border border-[#e5e7eb] bg-white text-[#0d1f2d] placeholder-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#4ecdc4] focus:border-transparent transition-all"
-            />
-          </div>
-
-          {error && (
-            <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-[#0d1f2d] text-white font-semibold text-sm hover:bg-[#1a3244] active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer mt-2"
-          >
-            {loading ? "로그인 중..." : "로그인"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-[#6b7280]">
-            아직 계정이 없으신가요?{" "}
-            <Link
-              href="/auth/signup"
-              className="font-semibold text-[#4ecdc4] hover:underline cursor-pointer"
-            >
-              회원가입
-            </Link>
-          </p>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            className={INPUT_CLASS}
+          />
         </div>
-      </div>
-    </div>
+
+        {error && <p className={ERROR_CLASS}>{error}</p>}
+
+        <button type="submit" disabled={loading} className={SUBMIT_CLASS}>
+          {loading ? "로그인 중..." : "로그인"}
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-muted">
+        아직 계정이 없으신가요?{" "}
+        <Link href="/auth/signup" className={LINK_CLASS}>
+          회원가입
+        </Link>
+      </p>
+    </>
   );
 }

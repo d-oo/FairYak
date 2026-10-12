@@ -2,48 +2,23 @@
 
 import { useState } from "react";
 
-const MONTH_NAMES = [
-  "1월",
-  "2월",
-  "3월",
-  "4월",
-  "5월",
-  "6월",
-  "7월",
-  "8월",
-  "9월",
-  "10월",
-  "11월",
-  "12월",
-];
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
 function toDateStr(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-interface CalendarProps {
-  markedDates: Set<string>;
-  secondaryDates?: Set<string>;
-  onToggle?: (dateStr: string) => Promise<void>;
-  markedLabel?: string;
-  markedLegendLabel?: string;
-  secondaryCellLabel?: string;
-  secondaryLabel?: string;
+interface DayCell {
+  day: number;
+  ds: string;
+  dow: number;
+  isPast: boolean;
+  isToday: boolean;
 }
 
-export default function Calendar({
-  markedDates,
-  secondaryDates,
-  onToggle,
-  markedLabel = "한가",
-  markedLegendLabel,
-  secondaryCellLabel,
-  secondaryLabel,
-}: CalendarProps) {
+// 달 이동 상태와 칸 목록. 앞뒤 빈칸(null)을 넣어 7의 배수로 맞춘다.
+function useMonthCells() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [loadingDate, setLoadingDate] = useState<string | null>(null);
-
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -56,157 +31,208 @@ export default function Calendar({
     today.getDate(),
   );
 
-  const isReadOnly = !onToggle;
+  const cells: (DayCell | null)[] = Array(firstDayOfMonth).fill(null);
+  for (let day = 1; day <= daysInMonth; day++) {
+    const ds = toDateStr(year, month, day);
+    cells.push({
+      day,
+      ds,
+      dow: (firstDayOfMonth + day - 1) % 7,
+      isPast: ds < todayStr,
+      isToday: ds === todayStr,
+    });
+  }
+  while (cells.length % 7) cells.push(null);
+
+  return {
+    title: `${year}년 ${month + 1}월`,
+    cells,
+    prev: () => setCurrentDate(new Date(year, month - 1, 1)),
+    next: () => setCurrentDate(new Date(year, month + 1, 1)),
+  };
+}
+
+// 요일 색 (일 = 주홍, 토 = 파랑)
+function dowTextClass(dow: number) {
+  return dow === 0 ? "text-accent-text" : dow === 6 ? "text-saturday" : "text-ink";
+}
+
+// ── 일정 관리 탭의 달력: 한가한 날을 클릭해서 토글 ──────────────
+interface CalendarProps {
+  markedDates: Set<string>;
+  onToggle: (dateStr: string) => Promise<void>;
+  className?: string;
+}
+
+export default function Calendar({
+  markedDates,
+  onToggle,
+  className = "",
+}: CalendarProps) {
+  const { title, cells, prev, next } = useMonthCells();
+  const [loadingDate, setLoadingDate] = useState<string | null>(null);
 
   async function handleDayClick(ds: string) {
-    if (isReadOnly || loadingDate || !onToggle) return;
+    if (loadingDate) return;
     setLoadingDate(ds);
     await onToggle(ds);
     setLoadingDate(null);
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#e9ebee]">
-      <div className="flex items-center justify-between mb-5">
-        <button
-          onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-[#f0f2f5] text-[#6b7280] hover:text-[#0d1f2d] transition-colors cursor-pointer text-xl leading-none"
-        >
-          ‹
-        </button>
-        <div className="text-center">
-          <p className="text-base font-bold text-[#0d1f2d]">
-            {year}년 {MONTH_NAMES[month]}
+    <section
+      className={`border border-ink bg-paper p-[clamp(16px,2.4vw,28px)] ${className}`}
+    >
+      <div className="mb-4.5 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[28px] leading-none font-semibold tracking-[-0.03em]">
+            {title}
+          </h2>
+          <p className="mt-2.5 text-[13px] text-muted">
+            한가한 날을 클릭해서 표시해요
           </p>
-          {!isReadOnly && (
-            <p className="text-xs text-[#9ca3af] mt-0.5">
-              한가한 날을 클릭해서 표시해요
-            </p>
-          )}
         </div>
-        <button
-          onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-[#f0f2f5] text-[#6b7280] hover:text-[#0d1f2d] transition-colors cursor-pointer text-xl leading-none"
-        >
-          ›
-        </button>
+        <div className="flex">
+          <button
+            onClick={prev}
+            className="size-9 cursor-pointer border border-ink font-mono text-[15px] text-ink hover:bg-page"
+          >
+            ‹
+          </button>
+          <button
+            onClick={next}
+            className="size-9 cursor-pointer border border-l-0 border-ink font-mono text-[15px] text-ink hover:bg-page"
+          >
+            ›
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 border-t border-ink font-mono text-xs text-muted">
         {DAY_NAMES.map((d, i) => (
-          <div
+          <span
             key={d}
-            className={`text-center text-xs font-bold py-2 ${
-              i === 0
-                ? "text-red-400"
-                : i === 6
-                  ? "text-blue-400"
-                  : "text-[#9ca3af]"
-            }`}
+            className={`px-2.5 py-2 ${i === 0 ? "text-accent-text" : i === 6 ? "text-saturday" : ""}`}
           >
             {d}
-          </div>
+          </span>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-          <div key={`empty-${year}-${month}-${i}`} />
-        ))}
+      <div className="grid grid-cols-7 border-t border-l border-rule">
+        {cells.map((cell, i) => {
+          const base =
+            "flex h-12.5 flex-col justify-between border-r border-b border-rule px-2.5 py-2 text-left select-none wide:h-19";
+          if (!cell) return <div key={`blank-${i}`} className={base} />;
 
-        {Array.from({ length: daysInMonth }).map((_, i) => {
-          const day = i + 1;
-          const ds = toDateStr(year, month, day);
-          const isMarked = markedDates.has(ds);
-          const isToday = ds === todayStr;
-          const isLoading = loadingDate === ds;
-          const isPast = ds < todayStr;
-          const dow = (firstDayOfMonth + i) % 7;
-          const isSecondary = !isMarked && (secondaryDates?.has(ds) ?? false);
-          const isRed = dow === 0;
+          const isMarked = !cell.isPast && markedDates.has(cell.ds);
+          const color = cell.isPast
+            ? "text-disabled"
+            : isMarked
+              ? "bg-accent text-white"
+              : dowTextClass(cell.dow);
 
-          const baseClass = `
-            relative aspect-square flex flex-col items-center justify-center rounded-xl
-            text-sm font-semibold transition-all select-none
-            ${
-              isPast
-                ? "text-[#d1d5db] cursor-default"
-                : isReadOnly
-                  ? "cursor-default"
-                  : "cursor-pointer"
-            }
-            ${
-              !isPast && isSecondary
-                ? "bg-[#fef3c7] text-[#92400e] border border-[#fcd34d]/50"
-                : ""
-            }
-            ${
-              !isPast && isMarked
-                ? `bg-[#4ecdc4] text-white shadow-sm ${!isReadOnly ? "hover:bg-[#3dbdb4]" : ""} ${isToday ? "ring-2 ring-[#0d1f2d] ring-offset-1" : ""}`
-                : !isPast && isToday
-                  ? `ring-2 ring-[#4ecdc4] text-[#0d1f2d]${!isReadOnly ? " hover:bg-[#f0f2f5]" : ""}`
-                  : !isPast && !isReadOnly
-                    ? "hover:bg-[#f0f2f5]"
-                    : ""
-            }
-            ${!isPast && !isMarked && isRed ? "text-red-400" : ""}
-            ${!isPast && !isMarked && !isRed && dow === 6 ? "text-blue-400" : ""}
-            ${!isPast && !isMarked && !isRed && dow !== 6 ? "text-[#374151]" : ""}
-            ${isLoading ? "opacity-50" : ""}
-          `;
-
-          const content = (
-            <>
-              <span>{day}</span>
-              {isMarked && (
-                <span className="text-[9px] leading-none mt-0.5 opacity-80 font-normal">
-                  {markedLabel}
-                </span>
-              )}
-              {isSecondary && secondaryCellLabel && (
-                <span className="text-[9px] leading-none mt-0.5 opacity-70 font-normal">
-                  {secondaryCellLabel}
-                </span>
-              )}
-            </>
-          );
-
-          return isReadOnly ? (
-            <div key={ds} className={baseClass}>
-              {content}
-            </div>
-          ) : (
+          return (
             <button
-              key={ds}
-              onClick={() => handleDayClick(ds)}
-              disabled={!!loadingDate || isPast}
-              className={baseClass}
+              key={cell.ds}
+              onClick={() => handleDayClick(cell.ds)}
+              disabled={!!loadingDate || cell.isPast}
+              className={`${base} ${color} ${cell.isToday ? "shadow-today" : ""} ${
+                cell.isPast ? "cursor-default" : "cursor-pointer"
+              } ${loadingDate === cell.ds ? "opacity-50" : ""}`}
             >
-              {content}
+              <span className="font-mono text-sm font-medium">{cell.day}</span>
+              <span className="text-xs font-medium">{isMarked ? "한가" : ""}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="flex items-center gap-5 mt-5 pt-4 border-t border-[#f0f0f0]">
+      <div className="mt-3.5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted">
         {markedDates.size > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-lg bg-[#4ecdc4]" />
-            <span className="text-xs text-[#6b7280]">
-              {markedLegendLabel ?? `${markedLabel}한 날`}
-            </span>
-          </div>
+          <span className="flex items-center gap-2">
+            <span className="size-3.5 bg-accent" />
+            한가한 날
+          </span>
         )}
-        {secondaryDates && secondaryDates.size > 0 && secondaryLabel && (
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-lg bg-[#fef3c7] border border-[#fcd34d]/50" />
-            <span className="text-xs text-[#6b7280]">{secondaryLabel}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-lg ring-2 ring-[#4ecdc4]" />
-          <span className="text-xs text-[#6b7280]">오늘</span>
+        <span className="flex items-center gap-2">
+          <span className="size-3.5 shadow-today" />
+          오늘
+        </span>
+      </div>
+    </section>
+  );
+}
+
+// ── 추천 일정의 작은 달력 (읽기 전용) ─────────────────────────
+interface MiniCalendarProps {
+  // 모두가 한가한 추천 날짜
+  markedDates: Set<string>;
+  // 전원 일치 날짜가 없을 때 가장 많은 인원이 한가한 날짜(폴백)
+  secondaryDates: Set<string>;
+}
+
+export function MiniCalendar({ markedDates, secondaryDates }: MiniCalendarProps) {
+  const { title, cells, prev, next } = useMonthCells();
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold">{title}</span>
+        <div className="flex">
+          <button
+            onClick={prev}
+            className="size-7.5 cursor-pointer border border-ink font-mono text-[13px] text-ink hover:bg-page"
+          >
+            ‹
+          </button>
+          <button
+            onClick={next}
+            className="size-7.5 cursor-pointer border border-l-0 border-ink font-mono text-[13px] text-ink hover:bg-page"
+          >
+            ›
+          </button>
         </div>
+      </div>
+      <div className="mb-1 grid grid-cols-7 text-center font-mono text-[11px] text-faint">
+        {DAY_NAMES.map((d) => (
+          <span key={d}>{d}</span>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-0.5">
+        {cells.map((cell, i) => {
+          if (!cell) return <div key={`blank-${i}`} className="h-9" />;
+          const isMarked = !cell.isPast && markedDates.has(cell.ds);
+          const isSecondary =
+            !cell.isPast && !isMarked && secondaryDates.has(cell.ds);
+          const color = cell.isPast
+            ? "text-disabled"
+            : isMarked
+              ? "bg-accent text-white"
+              : `${isSecondary ? "bg-accent-tint" : ""} ${dowTextClass(cell.dow)}`;
+          return (
+            <div
+              key={cell.ds}
+              className={`flex h-9 items-center justify-center font-mono text-[13px] ${color} ${
+                cell.isToday ? "shadow-today" : ""
+              }`}
+            >
+              {cell.day}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted">
+        <span className="flex items-center gap-2">
+          <span
+            className={`size-3.5 ${secondaryDates.size > 0 ? "bg-accent-tint" : "bg-accent"}`}
+          />
+          추천 날짜
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="size-3.5 shadow-today" />
+          오늘
+        </span>
       </div>
     </div>
   );

@@ -1,95 +1,42 @@
+function PanelSkeleton({ rows }: { rows: number }) {
+  return (
+    <div className="border border-ink bg-paper">
+      <div className="border-b border-ink px-4.5 py-3.5">
+        <div className="h-4.5 w-24 bg-track" />
+      </div>
+      <div className="flex flex-col gap-px bg-rule">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="bg-paper px-4.5 py-3">
+            <div className="h-4 w-1/2 bg-track" />
+            <div className="mt-1.5 h-3 w-3/4 bg-page" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MeetingDetailLoading() {
   return (
-    <div>
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-5">
-        {/* 서브헤더 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-16 bg-white rounded-xl border border-[#e9ebee] animate-pulse" />
-            <div className="h-6 w-36 bg-[#e9ebee] rounded-lg animate-pulse" />
-          </div>
-          <div className="h-8 w-14 bg-[#e9ebee] rounded-xl animate-pulse" />
-        </div>
+    <div className="animate-pulse">
+      {/* 상단 행 */}
+      <div className="mb-4.5 flex items-center gap-4">
+        <div className="h-9 w-18 border border-ink" />
+        <div className="h-8 w-48 bg-track" />
+        <div className="ml-auto h-10 w-20 bg-track" />
+      </div>
 
-        {/* 모임 인원 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-          <div className="h-4 w-24 bg-[#e9ebee] rounded animate-pulse mb-4" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="px-3 py-3 rounded-xl border border-[#f0f0f0] bg-[#f8f9fa] space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#e9ebee] shrink-0" />
-                  <div className="h-3 bg-[#e9ebee] rounded w-16" />
-                </div>
-                <div className="h-3 bg-[#e9ebee] rounded w-24 ml-4" />
-              </div>
-            ))}
-          </div>
+      {/* 지도 블록 */}
+      <div className="relative h-80 border border-ink bg-map-bg wide:h-135">
+        <div className="absolute top-4 left-4 hidden w-85 wide:block">
+          <PanelSkeleton rows={3} />
         </div>
+      </div>
 
-        {/* 내 출발지 (업데이트 버튼 헤더 우측) */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-4 w-20 bg-[#e9ebee] rounded animate-pulse" />
-            <div className="h-7 w-20 bg-[#e9ebee] rounded-xl animate-pulse" />
-          </div>
-          <div className="h-14 w-full bg-[#f0f2f5] rounded-xl animate-pulse" />
-        </div>
-
-        {/* 추천 일정 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-          <div className="h-4 w-20 bg-[#e9ebee] rounded animate-pulse mb-4" />
-          <div className="space-y-3 animate-pulse">
-            <div className="h-7 w-48 bg-[#f0f2f5] rounded-full" />
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 bg-[#f0f2f5] rounded-xl" />
-            ))}
-          </div>
-        </div>
-
-        {/* 추천 장소 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-          <div className="h-4 w-20 bg-[#e9ebee] rounded animate-pulse mb-4" />
-          <div className="w-full h-64 rounded-xl bg-[#f0f2f5] animate-pulse mb-4" />
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#f8f9fa] border border-[#e9ebee]"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#e9ebee] animate-pulse shrink-0" />
-                <div className="space-y-1.5 flex-1">
-                  <div className="h-3.5 bg-[#e9ebee] rounded w-32 animate-pulse" />
-                  <div className="h-3 bg-[#e9ebee] rounded w-48 animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 활동 로그 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-          <div className="h-4 w-20 bg-[#e9ebee] rounded animate-pulse mb-4" />
-          <div className="space-y-3 animate-pulse">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#f0f2f5] shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 bg-[#f0f2f5] rounded w-48" />
-                  <div className="h-2.5 bg-[#f0f2f5] rounded w-16" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 모임 나가기 */}
-        <div className="flex justify-end">
-          <div className="h-8 w-24 bg-white rounded-xl border border-[#e9ebee] animate-pulse" />
-        </div>
+      <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] items-start gap-5">
+        <PanelSkeleton rows={3} />
+        <PanelSkeleton rows={4} />
+        <PanelSkeleton rows={3} />
       </div>
     </div>
   );

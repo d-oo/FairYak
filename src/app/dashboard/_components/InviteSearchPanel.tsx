@@ -17,6 +17,7 @@ interface Props {
   ) => Promise<{ data: InviteTarget | null; error: string }>;
 }
 
+// 이메일 검색 행 + 결과 + 추가된 인원 태그. 부모의 flex 열(간격 8px) 안에 놓인다.
 export default function InviteSearchPanel({
   userEmail,
   inviteList,
@@ -59,7 +60,7 @@ export default function InviteSearchPanel({
   }
 
   return (
-    <div className="space-y-2">
+    <>
       <div className="flex gap-2">
         <input
           type="email"
@@ -74,32 +75,32 @@ export default function InviteSearchPanel({
           }
           placeholder="이메일로 검색"
           autoComplete="off"
-          className="flex-1 px-4 py-2.5 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] text-sm text-[#0d1f2d] placeholder-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#4ecdc4] focus:border-transparent focus:bg-white transition-all"
+          className="h-11 min-w-0 flex-1 border border-ink bg-input px-3.5 text-sm text-ink outline-none focus:shadow-focus"
         />
         <button
           type="button"
           onClick={handleSearch}
           disabled={isSearching || !searchEmail.trim()}
-          className="px-4 py-2.5 rounded-xl bg-[#0d1f2d] text-white text-sm font-semibold hover:bg-[#1a3244] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          className="h-11 flex-none cursor-pointer bg-ink px-4 text-sm font-semibold text-paper disabled:opacity-40"
         >
           {isSearching ? "..." : "검색"}
         </button>
       </div>
 
-      {searchError && <p className="text-xs text-red-500">{searchError}</p>}
+      {searchError && (
+        <p className="text-xs text-accent-text-strong">{searchError}</p>
+      )}
 
       {searchResult && (
-        <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#f8f9fa] border border-[#e5e7eb]">
+        <div className="flex items-center justify-between gap-3 border border-ink bg-input px-3.5 py-2.5">
           <div>
-            <p className="text-sm font-semibold text-[#374151]">
-              {searchResult.name}
-            </p>
-            <p className="text-xs text-[#9ca3af]">{searchResult.email}</p>
+            <p className="text-sm font-semibold">{searchResult.name}</p>
+            <p className="text-xs text-muted">{searchResult.email}</p>
           </div>
           <button
             type="button"
             onClick={addToList}
-            className="text-xs font-bold text-[#4ecdc4] hover:text-[#3dbdb4] cursor-pointer transition-colors"
+            className="cursor-pointer text-[13px] font-semibold text-accent-text"
           >
             + 추가
           </button>
@@ -107,24 +108,22 @@ export default function InviteSearchPanel({
       )}
 
       {inviteList.length > 0 && (
-        <ul className="space-y-1.5">
+        <ul className="flex flex-col gap-1.5">
           {inviteList.map((target) => (
             <li
               key={target.id}
-              className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#4ecdc4]/10 border border-[#4ecdc4]/20"
+              className="flex items-center justify-between gap-3 border border-accent bg-accent-soft px-3.5 py-2.25"
             >
               <div>
-                <p className="text-sm font-semibold text-[#0d9488]">
-                  {target.name}
-                </p>
-                <p className="text-xs text-[#0d9488]/70">{target.email}</p>
+                <p className="text-sm font-semibold">{target.name}</p>
+                <p className="text-xs text-muted">{target.email}</p>
               </div>
               <button
                 type="button"
                 onClick={() =>
                   onListChange(inviteList.filter((t) => t.id !== target.id))
                 }
-                className="text-[#0d9488]/50 hover:text-red-400 cursor-pointer text-xs"
+                className="cursor-pointer p-1 text-xs text-muted hover:text-accent-text"
               >
                 ✕
               </button>
@@ -132,6 +131,6 @@ export default function InviteSearchPanel({
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }

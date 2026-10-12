@@ -149,7 +149,7 @@ export default function RecommendDebug() {
       );
     }
     loadMeetings();
-  }, []);
+  }, [supabase]);
 
   // 모임 화면의 추천 계산과 같은 입력(멤버들의 저장된 출발지)으로 테스트하기 위해 불러온다
   async function loadMeeting(meeting: MeetingOption) {

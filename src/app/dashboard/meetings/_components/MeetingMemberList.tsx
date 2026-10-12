@@ -1,11 +1,15 @@
-interface MemberItem {
+import SectionHeader from "@/app/_components/SectionHeader";
+
+export interface MemberItem {
   userId: string;
   name: string;
-  hasLocation: boolean;
+  // 출발지가 있고 오늘 이후 한가한 날이 반영된 상태 ("업데이트 완료")
+  isUpdated: boolean;
+  hasDeparture: boolean;
   departureAddress: string | null;
 }
 
-interface PendingInviteItem {
+export interface PendingInviteItem {
   toUserId: string;
   toUserName: string;
 }
@@ -14,68 +18,83 @@ interface Props {
   members: MemberItem[];
   pendingInvites: PendingInviteItem[];
   currentUserId: string;
+  countLabel: string;
 }
 
+// 다른 멤버의 날짜는 표시하지 않는다
 export default function MeetingMemberList({
   members,
   pendingInvites,
   currentUserId,
+  countLabel,
 }: Props) {
   return (
-    <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-      <h2 className="text-sm font-bold text-[#0d1f2d] mb-4">
-        모임 인원
-        <span className="ml-2 text-xs font-normal text-[#9ca3af]">
-          {members.length}명 참여
-          {pendingInvites.length > 0 && ` · ${pendingInvites.length}명 대기중`}
-        </span>
-      </h2>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {members.map((member) => (
-          <div
-            key={member.userId}
-            className={`px-3 py-3 rounded-xl border ${
-              member.userId === currentUserId
-                ? "border-[#4ecdc4]/50 bg-[#f0faf9]"
-                : "border-[#f0f0f0] bg-[#f8f9fa]"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1.5">
-              <div
-                className={`w-2 h-2 rounded-full shrink-0 ${member.hasLocation ? "bg-[#4ecdc4]" : "bg-[#e5e7eb]"}`}
+    <section className="border border-ink bg-paper">
+      <SectionHeader
+        title="모임 인원"
+        right={
+          <span className="font-mono text-[11px] text-muted">{countLabel}</span>
+        }
+      />
+      <div className="flex flex-col gap-px bg-rule">
+        {members.map((member) => {
+          const isMe = member.userId === currentUserId;
+          return (
+            <div
+              key={member.userId}
+              className="grid grid-cols-[18px_minmax(0,1fr)_auto] gap-x-1.5 bg-paper px-4.5 py-2.75"
+            >
+              <span
+                className={`mt-1.75 size-2 ${
+                  !member.hasDeparture
+                    ? "shadow-[inset_0_0_0_1px_var(--faint)]"
+                    : isMe
+                      ? "bg-accent"
+                      : "bg-ink"
+                }`}
               />
-              <p className="text-sm font-semibold text-[#374151] truncate">
-                {member.name}
-                {member.userId === currentUserId && (
-                  <span className="ml-1 text-[10px] text-[#4ecdc4] font-normal">
-                    (나)
-                  </span>
-                )}
-              </p>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">
+                  {member.name}{" "}
+                  {isMe && (
+                    <span className="text-xs font-medium text-accent-text">
+                      (나)
+                    </span>
+                  )}
+                </p>
+                <p
+                  className={`mt-px truncate text-[13px] ${
+                    member.hasDeparture ? "text-muted" : "text-disabled"
+                  }`}
+                >
+                  {member.hasDeparture
+                    ? member.departureAddress
+                    : "위치 미입력"}
+                </p>
+              </div>
+              <span
+                className={`pt-0.75 font-mono text-[11px] whitespace-nowrap ${
+                  member.isUpdated ? "text-muted" : "text-accent-text"
+                }`}
+              >
+                {member.isUpdated ? "업데이트 완료" : "업데이트 전"}
+              </span>
             </div>
-            {member.hasLocation ? (
-              <p className="text-xs text-[#9ca3af] truncate pl-4">
-                {member.departureAddress}
-              </p>
-            ) : (
-              <p className="text-xs text-[#d1d5db] pl-4">위치 미입력</p>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         {pendingInvites.map((inv) => (
           <div
             key={inv.toUserId}
-            className="px-3 py-3 rounded-xl border border-dashed border-[#e5e7eb] bg-white"
+            className="grid grid-cols-[18px_minmax(0,1fr)] gap-x-1.5 bg-paper px-4.5 py-2.75"
           >
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-2 h-2 rounded-full bg-[#e5e7eb] shrink-0" />
-              <p className="text-sm font-semibold text-[#9ca3af] truncate">
+            <span className="mt-1.75 size-2 shadow-[inset_0_0_0_1px_var(--faint)]" />
+            <div>
+              <p className="text-sm font-semibold text-faint">
                 {inv.toUserName}
               </p>
+              <p className="mt-px text-[13px] text-disabled">초대 대기중</p>
             </div>
-            <p className="text-xs text-[#c4c9d0] pl-4">초대 대기중</p>
           </div>
         ))}
       </div>

@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import Script from "next/script";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import Logo from "@/app/_components/Logo";
 import DashboardTabBar from "./_components/DashboardTabBar";
+import NotificationBell from "./_components/NotificationBell";
 
 export default async function DashboardLayout({
   children,
@@ -36,32 +37,32 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
-      <header className="bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <span className="text-xl font-bold text-[#0d1f2d] tracking-tight">
-          페어약
-        </span>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[#6b7280]">{displayName}님</span>
-          <form action={handleLogout}>
-            <button
-              type="submit"
-              className="text-sm text-[#6b7280] hover:text-[#0d1f2d] transition-colors cursor-pointer"
-            >
-              로그아웃
-            </button>
-          </form>
+    <div className="min-h-screen bg-page">
+      <header className="sticky top-0 z-20 border-b border-ink bg-paper">
+        {/* 알림 패널이 이 영역 기준으로 헤더 구분선 바로 아래, 콘텐츠 오른쪽 끝에 맞춰 열린다 */}
+        <div className="relative mx-auto flex min-h-16 max-w-7xl flex-wrap items-center gap-x-8 px-[clamp(16px,4vw,40px)]">
+          <Logo href="/dashboard" className="h-16 items-center" />
+          <DashboardTabBar />
+          <div className="ml-auto flex items-center gap-4">
+            <NotificationBell userId={user.id} />
+            <span className="hidden text-[13px] text-muted wide:inline">
+              {displayName}님
+            </span>
+            <form action={handleLogout} className="flex">
+              <button
+                type="submit"
+                className="cursor-pointer text-[13px] text-muted hover:text-ink"
+              >
+                로그아웃
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 
-      <DashboardTabBar userId={user.id} />
-
-      {children}
-
-      <Script
-        src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`}
-        strategy="afterInteractive"
-      />
+      <main className="mx-auto max-w-7xl px-[clamp(16px,4vw,40px)] pt-7 pb-16">
+        {children}
+      </main>
     </div>
   );
 }

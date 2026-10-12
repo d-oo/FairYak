@@ -7,23 +7,16 @@ import InviteModal from "@/app/dashboard/meetings/_components/InviteModal";
 import LocationSelectModal, {
   type StagedLocation,
 } from "@/app/dashboard/meetings/_components/LocationSelectModal";
-import MeetingMemberList from "@/app/dashboard/meetings/_components/MeetingMemberList";
+import MeetingMemberList, {
+  type MemberItem,
+  type PendingInviteItem,
+} from "@/app/dashboard/meetings/_components/MeetingMemberList";
 import LeaveConfirmModal from "@/app/dashboard/meetings/_components/LeaveConfirmModal";
 import MeetingScheduleResult from "@/app/dashboard/meetings/_components/MeetingScheduleResult";
 import MeetingLocationResult from "@/app/dashboard/meetings/_components/MeetingLocationResult";
 import MeetingLogSection from "@/app/dashboard/meetings/_components/MeetingLogSection";
-
-interface MemberItem {
-  userId: string;
-  name: string;
-  hasLocation: boolean;
-  departureAddress: string | null;
-}
-
-interface PendingInviteItem {
-  toUserId: string;
-  toUserName: string;
-}
+import SectionHeader from "@/app/_components/SectionHeader";
+import BackIcon from "@/app/_components/BackIcon";
 
 interface SavedLocation {
   name: string;
@@ -88,10 +81,13 @@ export default function MeetingDetailClient({
     }
   }, [scheduleError]);
   const displayAddress = stagedLocation?.address ?? myDepartureAddress;
+  const countLabel = `${members.length}명 참여${
+    pendingInvites.length > 0 ? ` · ${pendingInvites.length}명 대기중` : ""
+  }`;
 
   useEffect(() => {
     router.prefetch("/dashboard/meetings");
-  }, []);
+  }, [router]);
 
   async function handleUpdate() {
     if (!canUpdate || isUpdating) return;
@@ -138,7 +134,7 @@ export default function MeetingDetailClient({
           m.userId === currentUserId
             ? {
                 ...m,
-                hasLocation: true,
+                hasDeparture: true,
                 departureAddress: stagedLocation.address,
               }
             : m,
@@ -176,6 +172,12 @@ export default function MeetingDetailClient({
       type: "updated",
     });
 
+    // 출발지와 오늘 이후 한가한 날이 반영됐으므로 "업데이트 완료"
+    setMembers((prev) =>
+      prev.map((m) =>
+        m.userId === currentUserId ? { ...m, isUpdated: true } : m,
+      ),
+    );
     setIsUpdating(false);
   }
 
@@ -219,133 +221,111 @@ export default function MeetingDetailClient({
         />
       )}
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-5">
-        {/* 서브 헤더 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push("/dashboard/meetings")}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#e5e7eb] bg-white text-sm font-semibold text-[#6b7280] hover:text-[#0d1f2d] hover:border-[#0d1f2d] transition-all cursor-pointer"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="7 4 10 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-3.5 h-3.5"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              <span>목록</span>
-            </button>
-            <h1 className="text-xl font-bold text-[#0d1f2d]">{meetingName}</h1>
-          </div>
-          <button
-            onClick={() => setShowInviteModal(true)}
-            className="px-4 py-2 rounded-xl bg-[#0d1f2d] text-white text-xs font-bold hover:bg-[#1a3244] transition-colors cursor-pointer"
-          >
-            + 초대
-          </button>
-        </div>
-        <MeetingMemberList
-          members={members}
-          pendingInvites={pendingInvites}
-          currentUserId={currentUserId}
-        />
+      <div className="mb-4.5 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <button
+          onClick={() => router.push("/dashboard/meetings")}
+          className="flex h-9 flex-none cursor-pointer items-center gap-1.5 border border-ink px-3 font-mono text-[13px] whitespace-nowrap text-ink hover:bg-paper"
+        >
+          <BackIcon />
+          목록
+        </button>
+        <h1 className="text-[clamp(24px,3vw,30px)] leading-[1.2] font-semibold tracking-[-0.035em]">
+          {meetingName}
+        </h1>
+        <span className="font-mono text-xs text-muted">{countLabel}</span>
+        <button
+          onClick={() => setShowInviteModal(true)}
+          className="ml-auto h-10 cursor-pointer bg-ink px-4.5 text-sm font-semibold text-paper hover:bg-ink-hover"
+        >
+          + 초대
+        </button>
+      </div>
 
-        {/* 내 출발지 */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-[#0d1f2d]">내 출발지</h2>
-            <div className="relative group">
-              <button
-                onClick={handleUpdate}
-                disabled={!canUpdate || isUpdating}
-                className="px-3 py-1.5 rounded-xl bg-[#4ecdc4] text-white text-xs font-bold hover:bg-[#3dbdb4] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isUpdating ? "업데이트 중..." : "업데이트"}
-              </button>
-              {scheduleError && (
-                <div className="absolute top-full right-0 mt-3 z-10">
-                  {/* 말풍선 꼬리 */}
-                  <div className="absolute -top-2 right-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-[#fcd34d]" />
-                  <div className="absolute -top-1.5 right-4.25 w-0 h-0 border-l-[7px] border-r-[7px] border-b-[7px] border-l-transparent border-r-transparent border-b-[#fff8f0]" />
-                  <div className="flex items-center gap-2 px-4 py-3 bg-[#fff8f0] border border-[#fcd34d] rounded-xl shadow-sm whitespace-nowrap">
-                    <span className="text-base">📅</span>
-                    <p className="text-xs text-[#92400e] font-medium">
-                      일정 관리에서 한가한 날을 먼저 입력해주세요.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {canUpdate && !isUpdating && (
-                <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-[#0d1f2d] text-white text-xs rounded-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  현재 내 일정과 변경된 위치가 반영됩니다.
-                  <div className="absolute top-full right-3 border-4 border-transparent border-t-[#0d1f2d]" />
-                </div>
-              )}
-            </div>
-          </div>
+      <MeetingLocationResult
+        meetingId={meetingId}
+        memberCount={members.length}
+        currentUserId={currentUserId}
+      />
 
-          {displayAddress ? (
-            <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#f0faf9] border border-[#4ecdc4]/30">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-base shrink-0">📍</span>
+      <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] items-start gap-5">
+        <div className="flex flex-col gap-5">
+          <MeetingMemberList
+            members={members}
+            pendingInvites={pendingInvites}
+            currentUserId={currentUserId}
+            countLabel={countLabel}
+          />
+
+          {/* 내 출발지 */}
+          <section className="border border-ink bg-paper">
+            <SectionHeader title="내 출발지" />
+            {displayAddress ? (
+              <div className="flex items-center justify-between gap-3 px-4.5 py-4">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#0d9488] truncate">
-                    {displayAddress}
-                  </p>
+                  <p className="text-[15px] font-semibold">{displayAddress}</p>
                   {stagedLocation && (
-                    <p className="text-xs text-[#f59e0b] mt-0.5">
+                    <p className="mt-1 text-xs text-accent-text">
                       업데이트 전 미적용 상태예요
                     </p>
                   )}
                 </div>
+                <button
+                  onClick={() => setShowLocationModal(true)}
+                  className="flex-none cursor-pointer text-[13px] text-muted underline underline-offset-3 hover:text-ink"
+                >
+                  변경
+                </button>
               </div>
+            ) : (
+              <div className="px-4.5 py-5.5 text-center">
+                <p className="mb-3.5 text-sm text-muted">
+                  출발지를 선택하고 업데이트를 눌러주세요
+                </p>
+                <button
+                  onClick={() => setShowLocationModal(true)}
+                  className="h-10 cursor-pointer border border-ink px-4.5 text-sm font-semibold text-ink hover:bg-page"
+                >
+                  출발지 선택하기
+                </button>
+              </div>
+            )}
+            <div className="group relative">
+              {canUpdate && !isUpdating && (
+                <div className="pointer-events-none absolute right-3 bottom-[calc(100%+8px)] z-6 hidden bg-ink px-2.5 py-1.75 text-xs whitespace-nowrap text-paper group-hover:block">
+                  현재 내 일정과 변경된 위치가 반영됩니다.
+                </div>
+              )}
               <button
-                onClick={() => setShowLocationModal(true)}
-                className="text-xs text-[#6b7280] hover:text-[#0d1f2d] font-semibold transition-colors cursor-pointer shrink-0 ml-3"
+                onClick={handleUpdate}
+                disabled={!canUpdate || isUpdating}
+                className="flex h-12 w-full cursor-pointer items-center justify-center border-t border-ink bg-accent text-[15px] font-semibold text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
-                변경
+                {isUpdating ? "업데이트 중..." : "업데이트"}
               </button>
+              {scheduleError && (
+                <div className="absolute top-[calc(100%+10px)] right-3 left-3 z-6">
+                  <div className="flex items-center gap-2.5 border border-ink bg-bubble-bg px-3.5 py-3 text-[13px]">
+                    <span className="size-2 flex-none bg-accent" />
+                    <span>일정 관리에서 한가한 날을 먼저 입력해주세요.</span>
+                  </div>
+                  {/* 말풍선 꼬리 */}
+                  <div className="absolute -top-1.25 right-6 size-2.5 rotate-45 border-t border-l border-ink bg-bubble-bg" />
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="text-center py-6">
-              <p className="text-2xl mb-2">📍</p>
-              <p className="text-sm text-[#6b7280] mb-4">
-                출발지를 선택하고 업데이트를 눌러주세요
-              </p>
-              <button
-                onClick={() => setShowLocationModal(true)}
-                className="px-5 py-2.5 rounded-xl bg-[#0d1f2d] text-white text-sm font-bold hover:bg-[#1a3244] transition-colors cursor-pointer"
-              >
-                출발지 선택하기
-              </button>
-            </div>
-          )}
-        </section>
+          </section>
+        </div>
 
         <MeetingScheduleResult
           meetingId={meetingId}
           memberCount={members.length}
         />
 
-        <MeetingLocationResult
-          meetingId={meetingId}
-          memberCount={members.length}
-          currentUserId={currentUserId}
-        />
-
-        <MeetingLogSection meetingId={meetingId} />
-
-        {/* 모임 나가기 */}
-        <div className="flex justify-end">
+        <div className="flex flex-col gap-3.5">
+          <MeetingLogSection meetingId={meetingId} />
           <button
             onClick={() => setShowLeaveModal(true)}
-            className="px-4 py-2 rounded-xl border border-[#e5e7eb] text-xs font-semibold text-[#9ca3af] hover:border-red-300 hover:text-red-500 transition-colors cursor-pointer"
+            className="cursor-pointer self-end px-0.5 py-1 text-[13px] text-faint underline underline-offset-3 hover:text-accent-text"
           >
             모임 나가기
           </button>

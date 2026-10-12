@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useEffectEvent, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 interface InvitationItem {
@@ -33,58 +33,6 @@ export default function NotificationBell({ userId }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    async function setup() {
-      await fetchInvitations();
-      if (isCancelled) return;
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        supabase.realtime.setAuth(session.access_token);
-      }
-      if (isCancelled) return;
-
-      channel = supabase
-        .channel(`invitations-bell-${userId}`)
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "invitations" },
-          (payload) => {
-            const row = payload.new as { to_user: string };
-            if (row.to_user !== userId) return;
-            fetchInvitations();
-          },
-        )
-        .subscribe();
-    }
-
-    setup();
-
-    return () => {
-      isCancelled = true;
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // 외부 클릭 시 닫기
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        if (isOpen) closeBell();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, invitations]);
 
   async function fetchInvitations() {
     setIsLoading(true);
@@ -189,66 +137,99 @@ export default function NotificationBell({ userId }: Props) {
     setProcessingId(null);
   }
 
+  // 최신 state로 fetchInvitations를 부르되, 매 렌더 새로 만들어지는 함수 때문에 구독을 다시 하지 않도록 Effect Event로 감싼다
+  const loadInvitations = useEffectEvent(() => fetchInvitations());
+
+  useEffect(() => {
+    let isCancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function setup() {
+      await loadInvitations();
+      if (isCancelled) return;
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token);
+      }
+      if (isCancelled) return;
+
+      channel = supabase
+        .channel(`invitations-bell-${userId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "invitations" },
+          (payload) => {
+            const row = payload.new as { to_user: string };
+            if (row.to_user !== userId) return;
+            loadInvitations();
+          },
+        )
+        .subscribe();
+    }
+
+    setup();
+
+    return () => {
+      isCancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [supabase, userId]);
+
+  // 외부 클릭 시 닫기. 열림 여부·초대 목록은 Effect Event가 최신 값을 읽으므로 리스너는 한 번만 단다
+  const onMouseDownOutside = useEffectEvent((e: MouseEvent) => {
+    if (
+      isOpen &&
+      containerRef.current &&
+      !containerRef.current.contains(e.target as Node)
+    ) {
+      closeBell();
+    }
+  });
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      onMouseDownOutside(e);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const unreadCount = invitations.filter((inv) => !inv.seen).length;
 
   return (
-    <div ref={containerRef} className="relative">
-      {/* 벨 버튼 */}
+    // relative를 두지 않아 패널이 헤더 영역(layout.tsx) 기준으로 배치된다
+    <div ref={containerRef} className="flex">
       <button
         onClick={handleBellClick}
-        className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-[#f0f2f5] transition-colors cursor-pointer"
+        className={`flex h-8.5 cursor-pointer items-center gap-2 px-2.5 text-[13px] font-medium text-ink hover:bg-page ${
+          isOpen ? "bg-page" : ""
+        }`}
       >
-        {isOpen ? (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-5 h-5 text-[#0d1f2d]"
-          >
-            <path d="M5.85 3.5a.75.75 0 0 0-1.117-1 9.719 9.719 0 0 0-2.348 4.876.75.75 0 0 0 1.479.248A8.219 8.219 0 0 1 5.85 3.5ZM19.267 2.5a.75.75 0 1 0-1.118 1 8.22 8.22 0 0 1 1.987 4.124.75.75 0 0 0 1.48-.248A9.72 9.72 0 0 0 19.267 2.5Z" />
-            <path
-              fillRule="evenodd"
-              d="M12 2.25A6.75 6.75 0 0 0 5.25 9v.75a8.217 8.217 0 0 1-2.119 5.52.75.75 0 0 0 .298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 1 0 7.48 0 24.583 24.583 0 0 0 4.83-1.244.75.75 0 0 0 .298-1.205 8.217 8.217 0 0 1-2.118-5.52V9A6.75 6.75 0 0 0 12 2.25ZM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 0 0 4.496 0l.002.1a2.25 2.25 0 1 1-4.5 0Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-5 h-5 text-[#6b7280]"
-          >
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-        )}
+        알림
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 px-1 flex items-center justify-center bg-[#4ecdc4] text-white text-[10px] font-bold rounded-full">
+          <span className="flex h-4.5 min-w-4.5 items-center justify-center bg-accent px-1 font-mono text-[11px] text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
-      {/* 드롭다운 */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-[#e9ebee] z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#f0f0f0] flex items-center justify-between">
-            <h3 className="text-sm font-bold text-[#0d1f2d]">
-              받은 초대
-              {invitations.length > 0 && (
-                <span className="ml-1.5 text-xs text-[#9ca3af] font-normal">
-                  {invitations.length}개
-                </span>
-              )}
+        // top: 패널 윗 테두리가 헤더 구분선(1px)과 같은 줄에 겹치도록 헤더 내용 영역 바로 아래
+        // right: 헤더 좌우 여백만큼 들여 콘텐츠 오른쪽 끝에 맞춤
+        <div className="absolute top-full right-[clamp(16px,4vw,40px)] z-31 w-[min(340px,calc(100vw-32px))] border border-ink bg-paper">
+          <div className="flex items-center justify-between border-b border-ink px-4 py-3">
+            <h3 className="text-sm font-semibold">
+              받은 초대{" "}
+              <span className="font-mono text-xs font-normal text-faint">
+                {invitations.length > 0 && `${invitations.length}개`}
+              </span>
             </h3>
             <button
               onClick={fetchInvitations}
-              className="text-xs text-[#9ca3af] hover:text-[#4ecdc4] transition-colors cursor-pointer"
+              className="cursor-pointer text-xs text-faint hover:text-ink"
             >
               새로고침
             </button>
@@ -256,58 +237,56 @@ export default function NotificationBell({ userId }: Props) {
 
           <div className="max-h-96 overflow-y-auto">
             {isLoading && (
-              <div className="px-4 py-8 text-center text-sm text-[#9ca3af]">
+              <p className="px-4 py-8 text-center text-[13px] text-faint">
                 불러오는 중...
-              </div>
+              </p>
             )}
 
             {!isLoading && invitations.length === 0 && (
-              <div className="px-4 py-8 text-center">
-                <p className="text-2xl mb-2">🔕</p>
-                <p className="text-sm text-[#9ca3af]">받은 초대가 없어요</p>
-              </div>
+              <p className="px-4 py-8 text-center text-[13px] text-faint">
+                받은 초대가 없어요
+              </p>
             )}
 
-            {!isLoading &&
-              invitations.map((inv) => (
-                <div
-                  key={inv.meetingId}
-                  className={`px-4 py-3.5 border-b border-[#f8f9fa] last:border-0 ${
-                    !inv.seen ? "bg-[#f0faf9]" : "bg-white"
-                  }`}
-                >
-                  <div className="flex items-start gap-2 mb-2.5">
-                    {!inv.seen && (
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#4ecdc4] shrink-0" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-[#0d1f2d] truncate">
-                        {inv.meetingName}
-                      </p>
-                      <p className="text-xs text-[#6b7280] mt-0.5">
-                        {inv.fromName}님이 초대했어요 ·{" "}
-                        {formatRelativeTime(inv.at)}
-                      </p>
+            {!isLoading && invitations.length > 0 && (
+              <div className="flex flex-col gap-px bg-rule">
+                {invitations.map((inv) => (
+                  <div
+                    key={inv.meetingId}
+                    className={`px-4 py-3.5 ${inv.seen ? "bg-paper" : "bg-accent-soft"}`}
+                  >
+                    {/* 안 읽은 표시는 왼쪽 여백에 두어, 읽음 여부와 상관없이 글자·버튼이
+                        헤더("받은 초대")와 같은 왼쪽 끝에 맞춰지게 한다 */}
+                    <p className="relative truncate text-sm font-semibold">
+                      {!inv.seen && (
+                        <span className="absolute top-1/2 -left-2.75 size-1.75 -translate-y-1/2 bg-accent" />
+                      )}
+                      {inv.meetingName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {inv.fromName}님이 초대했어요 ·{" "}
+                      {formatRelativeTime(inv.at)}
+                    </p>
+                    <div className="mt-2.5 flex gap-2">
+                      <button
+                        onClick={() => handleDecline(inv.meetingId)}
+                        disabled={processingId === inv.meetingId}
+                        className="h-8 flex-1 cursor-pointer border border-ink text-xs font-semibold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        거절
+                      </button>
+                      <button
+                        onClick={() => handleAccept(inv.meetingId)}
+                        disabled={processingId === inv.meetingId}
+                        className="h-8 flex-1 cursor-pointer bg-accent text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        수락
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleDecline(inv.meetingId)}
-                      disabled={processingId === inv.meetingId}
-                      className="flex-1 py-1.5 rounded-xl border border-[#e5e7eb] text-xs font-semibold text-[#6b7280] hover:bg-[#f8f9fa] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      거절
-                    </button>
-                    <button
-                      onClick={() => handleAccept(inv.meetingId)}
-                      disabled={processingId === inv.meetingId}
-                      className="flex-1 py-1.5 rounded-xl bg-[#4ecdc4] text-white text-xs font-bold hover:bg-[#3dbdb4] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      수락
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

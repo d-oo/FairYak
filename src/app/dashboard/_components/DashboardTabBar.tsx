@@ -1,13 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import NotificationBell from "@/app/dashboard/_components/NotificationBell";
 
-interface Props {
-  userId: string;
-}
-
-export default function DashboardTabBar({ userId }: Props) {
+// 헤더의 탭 전환 버튼. 좁은 화면에서는 헤더 둘째 줄 전체 폭으로 내려간다.
+export default function DashboardTabBar() {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -15,28 +11,23 @@ export default function DashboardTabBar({ userId }: Props) {
   const isMeetings = pathname.startsWith("/dashboard/meetings");
 
   return (
-    <div className="bg-white border-b border-[#e5e7eb] px-6 flex items-center justify-between">
-      <div className="flex gap-1">
-        {(
-          [
-            ["일정 관리", "/dashboard", isMyStatus],
-            ["모임 목록", "/dashboard/meetings", isMeetings],
-          ] as const
-        ).map(([label, href, active]) => (
-          <button
-            key={href}
-            onClick={() => router.push(href)}
-            className={`px-5 py-4 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
-              active
-                ? "border-[#4ecdc4] text-[#0d1f2d]"
-                : "border-transparent text-[#9ca3af] hover:text-[#6b7280]"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <NotificationBell userId={userId} />
+    <div className="order-3 mb-3 flex basis-full border border-ink wide:order-0 wide:mb-0 wide:basis-auto">
+      {(
+        [
+          ["일정 관리", "/dashboard", isMyStatus],
+          ["모임 목록", "/dashboard/meetings", isMeetings],
+        ] as const
+      ).map(([label, href, active]) => (
+        <button
+          key={href}
+          onClick={() => router.push(href)}
+          className={`h-8.5 flex-1 cursor-pointer px-4 text-sm font-semibold whitespace-nowrap wide:flex-none ${
+            active ? "bg-ink text-paper" : "text-muted"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

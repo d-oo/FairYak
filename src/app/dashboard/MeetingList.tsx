@@ -45,68 +45,61 @@ export default function MeetingList({
         />
       )}
 
-      <div className="max-w-5xl mx-auto px-6 py-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-sm font-bold text-[#0d1f2d]">내 모임</h2>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-baseline gap-2.5">
+          <h2 className="text-base font-semibold">내 모임</h2>
+          <span className="font-mono text-xs text-faint">{meetings.length}</span>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="h-9.5 cursor-pointer bg-ink px-4 text-sm font-semibold text-paper hover:bg-ink-hover"
+        >
+          + 모임 만들기
+        </button>
+      </div>
+
+      {meetings.length === 0 && (
+        <div className="border border-ink bg-paper px-5 py-14 text-center">
+          <h3 className="text-base font-semibold">아직 모임이 없어요</h3>
+          <p className="mt-2 mb-5 text-sm text-muted">
+            새로운 모임을 만들거나 초대를 기다려봐요.
+          </p>
           <button
             onClick={() => setShowModal(true)}
-            className="px-4 py-2 rounded-xl bg-[#0d1f2d] text-white text-xs font-bold hover:bg-[#1a3244] transition-colors cursor-pointer"
+            className="h-10 cursor-pointer bg-ink px-4.5 text-sm font-semibold text-paper hover:bg-ink-hover"
           >
             + 모임 만들기
           </button>
         </div>
+      )}
 
-        {meetings.length === 0 && (
-          <div className="bg-white rounded-2xl p-12 shadow-sm border border-[#e9ebee] text-center">
-            <p className="text-5xl mb-4">🗓️</p>
-            <h3 className="text-base font-bold text-[#0d1f2d] mb-2">
-              아직 모임이 없어요
-            </h3>
-            <p className="text-sm text-[#9ca3af] mb-5">
-              새로운 모임을 만들거나 초대를 기다려봐요.
-            </p>
+      {meetings.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-4">
+          {meetings.map((meeting) => (
             <button
-              onClick={() => setShowModal(true)}
-              className="px-5 py-2.5 rounded-xl bg-[#0d1f2d] text-white text-sm font-bold hover:bg-[#1a3244] transition-colors cursor-pointer"
+              key={meeting.meetingId}
+              onClick={() =>
+                router.push(`/dashboard/meetings/${meeting.meetingId}`)
+              }
+              className="flex min-h-42 cursor-pointer flex-col border border-ink bg-paper p-0 text-left text-ink hover:bg-input hover:shadow-[inset_0_0_0_1px_var(--ink)]"
             >
-              + 모임 만들기
+              <span className="flex flex-1 flex-col self-stretch px-4 pt-4.5 pb-4">
+                <span className="text-xl leading-[1.3] font-semibold tracking-[-0.02em]">
+                  {meeting.meetingName}
+                </span>
+                <span className="mt-auto flex items-baseline gap-2 pt-5 text-[13px] text-muted">
+                  <span className="flex-none font-mono text-xs text-ink">
+                    {meeting.memberCount}명
+                  </span>
+                  <span className="min-w-0">
+                    {formatMemberNames(meeting.otherMemberNames)}
+                  </span>
+                </span>
+              </span>
             </button>
-          </div>
-        )}
-
-        {meetings.length > 0 && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#e9ebee]">
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-              {meetings.map((meeting) => (
-                <button
-                  key={meeting.meetingId}
-                  onClick={() =>
-                    router.push(`/dashboard/meetings/${meeting.meetingId}`)
-                  }
-                  className="group text-left bg-[#f8f9fa] rounded-2xl p-5 border border-[#e9ebee] hover:border-[#4ecdc4]/60 hover:shadow-md transition-all cursor-pointer flex flex-col gap-3"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-[#0d1f2d] flex items-center justify-center text-lg group-hover:bg-[#4ecdc4] transition-colors">
-                      🗓️
-                    </div>
-                    <span className="text-xs font-semibold text-[#9ca3af] bg-white px-2.5 py-1 rounded-full">
-                      {meeting.memberCount}명
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-[#0d1f2d] group-hover:text-[#4ecdc4] transition-colors line-clamp-2 leading-snug">
-                      {meeting.meetingName}
-                    </h3>
-                    <p className="text-xs text-[#9ca3af] mt-1.5 line-clamp-2 leading-relaxed">
-                      {formatMemberNames(meeting.otherMemberNames)}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

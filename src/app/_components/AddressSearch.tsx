@@ -155,12 +155,9 @@ export default function AddressSearch({
   }
 
   return (
-    <div ref={containerRef} className="relative space-y-2">
+    <div ref={containerRef} className="flex flex-col gap-2">
       {/* 검색 입력 */}
       <div className="relative">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af] text-sm">
-          🔍
-        </span>
         <input
           type="text"
           value={query}
@@ -169,13 +166,12 @@ export default function AddressSearch({
           onKeyDown={(e) => e.key === "Escape" && setShowDropdown(false)}
           placeholder="장소명 또는 주소를 검색하세요"
           autoComplete="off"
-          className={`w-full pl-9 pr-4 py-3 rounded-xl border text-sm text-[#0d1f2d] placeholder-[#9ca3af]
-            focus:outline-none focus:ring-2 focus:ring-[#4ecdc4] focus:border-transparent transition-all
-            ${selected ? "border-[#4ecdc4] bg-[#f0faf9]" : "border-[#e5e7eb] bg-[#f8f9fa] focus:bg-white"}
-          `}
+          className={`h-11.5 w-full border pr-21 pl-3.5 text-sm text-ink outline-none focus:shadow-focus ${
+            selected ? "border-accent bg-accent-soft" : "border-ink bg-input"
+          }`}
         />
         {isSearching && (
-          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-[#9ca3af]">
+          <span className="absolute top-1/2 right-3.5 -translate-y-1/2 text-xs text-faint">
             검색 중...
           </span>
         )}
@@ -183,20 +179,20 @@ export default function AddressSearch({
 
       {/* 검색 결과 드롭다운 */}
       {showDropdown && results.length > 0 && (
-        <ul className="w-full bg-white border border-[#e5e7eb] rounded-xl shadow-sm overflow-hidden">
+        <ul className="flex flex-col gap-px border border-ink bg-rule">
           {results.map((result, i) => (
             <li key={i}>
               <button
                 type="button"
                 onClick={() => handleSelect(result)}
-                className="w-full px-4 py-3 text-left hover:bg-[#f8f9fa] transition-colors cursor-pointer border-b border-[#f0f0f0] last:border-0"
+                className="block w-full cursor-pointer bg-input px-3.5 py-2.5 text-left text-ink hover:bg-page"
               >
-                <p className="text-sm font-semibold text-[#0d1f2d] truncate">
+                <span className="block text-sm font-semibold">
                   {result.name}
-                </p>
-                <p className="text-xs text-[#9ca3af] truncate mt-0.5">
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">
                   {result.address}
-                </p>
+                </span>
               </button>
             </li>
           ))}
@@ -209,17 +205,15 @@ export default function AddressSearch({
           type="button"
           onClick={handleGps}
           disabled={isGpsLoading}
-          className="flex items-center gap-2 text-xs text-[#4ecdc4] font-semibold hover:text-[#3dbdb4] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="cursor-pointer self-start text-xs font-semibold text-accent-text disabled:opacity-50"
         >
-          <span>
-            {isGpsLoading ? "위치 가져오는 중..." : "📍 현재 위치 사용"}
-          </span>
+          {isGpsLoading ? "위치 가져오는 중..." : "현재 위치 사용"}
         </button>
       )}
 
       {/* 에러 */}
       {error && (
-        <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-xl">
+        <p className="border border-accent bg-error-bg px-3 py-2 text-xs text-accent-text-strong">
           {error}
         </p>
       )}

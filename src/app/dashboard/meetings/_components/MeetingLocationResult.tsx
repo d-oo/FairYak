@@ -1,23 +1,25 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useEffectEvent, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { mapWithConcurrency } from "@/utils/concurrency";
-import dynamic from "next/dynamic";
-import { type MapLocation, type MemberMapLocation } from "@/app/_components/KakaoMap";
-
-const KakaoMap = dynamic(() => import("@/app/_components/KakaoMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-64 rounded-xl bg-[#f0f2f5] border border-[#e9ebee] animate-pulse" />
-  ),
-});
+import RecommendMap from "@/app/_components/RecommendMap";
+import SectionHeader from "@/app/_components/SectionHeader";
+import UpdateProgress from "@/app/dashboard/meetings/_components/UpdateProgress";
 
 interface RecommendedLocation {
   id: number;
+  stationId: string;
   placeName: string;
   lat: number;
   lng: number;
+}
+
+interface MemberLocation {
+  name: string;
+  lat: number;
+  lng: number;
+  isMe: boolean;
 }
 
 // /api/location/recommend가 돌려주는 추천 역 (공공데이터 역 목록 기준)
@@ -71,6 +73,7 @@ async function fetchTransitTime(
   return data.minutes ?? null;
 }
 
+// 모임 상세의 지도 블록: 멤버 출발지·추천 역 지도 + 추천 장소 패널(04)
 export default function MeetingLocationResult({
   meetingId,
   memberCount,
@@ -81,62 +84,33 @@ export default function MeetingLocationResult({
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 마지막으로 내 이동시간을 조회한 (내 출발지 + 추천 장소 목록). 같은 조합이면 다시 조회하지 않는다.
   const travelTimesKeyRef = useRef<string | null>(null);
+  // 마지막으로 노선을 조회한 역 id 목록
+  const stationLinesKeyRef = useRef<string | null>(null);
+  // 마지막으로 불러온 추천 결과. 결과가 바뀌면 지도·목록 선택을 전체 선택으로 되돌린다.
+  const resultKeyRef = useRef<string | null>(null);
 
   const [locations, setLocations] = useState<RecommendedLocation[]>([]);
-  const [memberLocations, setMemberLocations] = useState<MemberMapLocation[]>(
-    [],
-  );
+  const [memberLocations, setMemberLocations] = useState<MemberLocation[]>([]);
   // 추천 장소 id → 내 이동시간(분). 저장하지 않고 화면에 있는 동안만 들고 있는다.
   const [myTravelTimes, setMyTravelTimes] = useState<Record<number, number>>(
     {},
   );
+  // 역 id → 노선 목록 (공공데이터)
+  const [stationLines, setStationLines] = useState<Record<string, string[]>>(
+    {},
+  );
+  // 지도와 목록에서 선택된 추천 장소 순번들 (0 = 1위). 기본은 전체 선택, 누를 때마다 켜고 끈다
+  const [selected, setSelected] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
   // 다른 멤버가 계산 중이라 결과를 기다리는 상태
   const [isWaitingForOther, setIsWaitingForOther] = useState(false);
   const [allUpdated, setAllUpdated] = useState(false);
   const [updatedCount, setUpdatedCount] = useState(0);
+  // 최신 멤버 수. 보는 도중 누가 들어오거나 나가도 대기 문구가 맞도록 조회할 때마다 갱신한다
+  const [currentMemberCount, setCurrentMemberCount] = useState(memberCount);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isCancelled = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    async function setup() {
-      await fetchData();
-      if (isCancelled) return;
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.access_token)
-        supabase.realtime.setAuth(session.access_token);
-      if (isCancelled) return;
-
-      channel = supabase
-        .channel(`recommended-locations-${meetingId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "recommended_locations",
-            filter: `meeting_id=eq.${meetingId}`,
-          },
-          () => {
-            if (!isCancelled) fetchData();
-          },
-        )
-        .subscribe();
-    }
-
-    setup();
-    return () => {
-      isCancelled = true;
-      if (channel) supabase.removeChannel(channel);
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-    };
-  }, [meetingId]);
 
   // 추천 결과 저장 시 Realtime 이벤트가 여러 번 와서 fetchData가 반복 호출되므로,
   // 내 출발지와 추천 장소 목록이 그대로면 다시 조회하지 않는다.
@@ -162,6 +136,25 @@ export default function MeetingLocationResult({
     } catch {
       // 네트워크 오류 등으로 실패하면 이동시간만 표시하지 않는다. 다음 fetchData에서 다시 시도한다.
       travelTimesKeyRef.current = null;
+    }
+  }
+
+  // 저장된 결과에는 역 id만 있으므로 노선은 서버(/api/stations)에서 찾아온다
+  async function fetchStationLines(stationIds: string[]) {
+    const key = stationIds.join(",");
+    if (stationLinesKeyRef.current === key) return;
+    stationLinesKeyRef.current = key;
+
+    try {
+      const res = await fetch(`/api/stations?ids=${encodeURIComponent(key)}`);
+      if (!res.ok) throw new Error();
+      const { stations }: { stations: { id: string; lines: string[] }[] } =
+        await res.json();
+      if (stationLinesKeyRef.current !== key) return;
+      setStationLines(Object.fromEntries(stations.map((s) => [s.id, s.lines])));
+    } catch {
+      // 노선 없이 역 이름만 표시한다. 다음 fetchData에서 다시 시도한다.
+      stationLinesKeyRef.current = null;
     }
   }
 
@@ -197,7 +190,7 @@ export default function MeetingLocationResult({
     // 추천 장소 확인
     const { data: existing } = await supabase
       .from("recommended_location_coordinates")
-      .select("id, place_name, lat, lng")
+      .select("id, station_id, place_name, lat, lng")
       .eq("meeting_id", meetingId)
       .order("rank");
 
@@ -205,11 +198,18 @@ export default function MeetingLocationResult({
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
       const locs = existing.map((r) => ({
         id: r.id,
+        stationId: r.station_id,
         placeName: r.place_name,
         lat: r.lat,
         lng: r.lng,
       }));
+      const resultKey = locs.map((l) => l.id).join(",");
+      if (resultKeyRef.current !== resultKey) {
+        resultKeyRef.current = resultKey;
+        setSelected(locs.map((_, i) => i));
+      }
       setLocations(locs);
+      fetchStationLines(locs.map((l) => l.stationId));
       const myCoord = (memberCoords ?? []).find(
         (m) => m.user_id === currentUserId,
       );
@@ -245,6 +245,7 @@ export default function MeetingLocationResult({
     const updated = membersWithLocation.filter((m) =>
       userIdsWithSchedules.has(m.user_id),
     ).length;
+    setCurrentMemberCount(freshMemberCount);
     setUpdatedCount(updated);
 
     if (updated < freshMemberCount) {
@@ -344,92 +345,163 @@ export default function MeetingLocationResult({
     }, CALC_RETRY_DELAY_MS);
   }
 
-  const mapLocations: MapLocation[] = locations.map((l) => ({
-    name: l.placeName,
-    address: l.placeName,
-    lat: l.lat,
-    lng: l.lng,
-  }));
+  const showSkeleton =
+    isLoading || ((isCalculating || isWaitingForOther) && allUpdated);
+  const showResult =
+    !isLoading && !isCalculating && !error && locations.length > 0;
+
+  // 최신 state로 fetchData를 부르되, 매 렌더 새로 만들어지는 fetchData 때문에 구독을 다시 하지 않도록 Effect Event로 감싼다
+  const loadData = useEffectEvent(() => fetchData());
+
+  useEffect(() => {
+    let isCancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function setup() {
+      await loadData();
+      if (isCancelled) return;
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token)
+        supabase.realtime.setAuth(session.access_token);
+      if (isCancelled) return;
+
+      channel = supabase
+        .channel(`recommended-locations-${meetingId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "recommended_locations",
+            filter: `meeting_id=eq.${meetingId}`,
+          },
+          () => {
+            if (!isCancelled) loadData();
+          },
+        )
+        .subscribe();
+    }
+
+    setup();
+    return () => {
+      isCancelled = true;
+      if (channel) supabase.removeChannel(channel);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, [meetingId, supabase]);
+
+  function toggleSelected(index: number) {
+    setSelected((prev) =>
+      prev.includes(index)
+        ? prev.filter((i) => i !== index)
+        : [...prev, index].sort((a, b) => a - b),
+    );
+  }
 
   return (
-    <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-      <h2 className="text-sm font-bold text-[#0d1f2d] mb-4">추천 장소</h2>
+    <div className="relative border border-ink bg-map-bg">
+      <RecommendMap
+        members={memberLocations.map((m) => ({
+          label: m.isMe ? `${m.name} (나)` : m.name,
+          lat: m.lat,
+          lng: m.lng,
+          isMe: m.isMe,
+        }))}
+        stations={
+          showResult
+            ? locations.map((l) => ({
+                label: l.placeName,
+                lat: l.lat,
+                lng: l.lng,
+              }))
+            : []
+        }
+        selected={selected}
+        onToggle={toggleSelected}
+        hasLeftPanel
+        className="relative h-80 overflow-hidden wide:h-135"
+      />
 
-      {!isLoading && !allUpdated && (
-        <div className="text-center py-6 space-y-2">
-          <p className="text-2xl">📍</p>
-          <p className="text-sm text-[#6b7280]">
-            아직 모든 인원이 업데이트하지 않았어요
-          </p>
-          <p className="text-xs text-[#9ca3af]">
-            {memberCount}명 중 {updatedCount}명 완료
-          </p>
-        </div>
-      )}
+      {/* 추천 장소 패널: 넓은 화면에서는 지도 위 왼쪽, 좁은 화면에서는 지도 아래 */}
+      <div className="relative z-2 border-t border-ink bg-paper wide:absolute wide:top-4 wide:left-4 wide:w-85 wide:border">
+        <SectionHeader title="추천 장소" />
 
-      {(isLoading || isCalculating || isWaitingForOther) && allUpdated && (
-        <div className="space-y-4 animate-pulse">
-          <div className="w-full h-64 rounded-xl bg-[#f0f2f5] border border-[#e9ebee]" />
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#f8f9fa] border border-[#e9ebee]"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#e9ebee] shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3.5 bg-[#e9ebee] rounded w-32" />
-                  <div className="h-3 bg-[#e9ebee] rounded w-16" />
+        {!isLoading && !allUpdated && (
+          <UpdateProgress total={currentMemberCount} updated={updatedCount} />
+        )}
+
+        {showSkeleton && (
+          <div className="pb-4">
+            <div className="flex flex-col gap-px bg-rule">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[34px_1fr] bg-paper px-4.5 py-3.5"
+                >
+                  <span className="mt-0.75 h-3 w-4 bg-track" />
+                  <span>
+                    <span className="block h-3.25 w-3/5 bg-track" />
+                    <span className="mt-2 block h-2.5 w-[35%] bg-page" />
+                  </span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            {(isCalculating || isWaitingForOther) && (
+              <p className="mx-4.5 mt-3.5 text-center text-xs text-muted">
+                최적 장소를 계산하고 있어요...
+              </p>
+            )}
           </div>
-          {(isCalculating || isWaitingForOther) && (
-            <p className="text-xs text-center text-[#9ca3af]">
-              최적 장소를 계산하고 있어요...
-            </p>
-          )}
-        </div>
-      )}
+        )}
 
-      {!isLoading && !isCalculating && !isWaitingForOther && error && (
-        <div className="text-center py-6">
-          <p className="text-2xl mb-2">😔</p>
-          <p className="text-sm text-[#6b7280]">{error}</p>
-        </div>
-      )}
+        {!isLoading && !isCalculating && !isWaitingForOther && error && (
+          <p className="p-4.5 text-sm text-muted">{error}</p>
+        )}
 
-      {!isLoading && !isCalculating && !error && locations.length > 0 && (
-        <div className="space-y-4">
-          <KakaoMap
-            locations={mapLocations}
-            memberLocations={memberLocations}
-          />
-          <ul className="space-y-2">
-            {locations.map((loc, i) => (
-              <li
-                key={loc.id}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#f8f9fa] border border-[#e9ebee]"
-              >
-                <span className="w-6 h-6 rounded-full bg-[#0d1f2d] text-white text-xs font-bold flex items-center justify-center shrink-0">
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[#374151] truncate">
-                    {loc.placeName}
-                  </p>
-                  {myTravelTimes[loc.id] !== undefined && (
-                    <p className="text-xs text-[#4ecdc4] mt-0.5">
-                      이동시간 약 {formatTravelTime(myTravelTimes[loc.id])}
-                    </p>
-                  )}
-                </div>
-                <span className="text-base shrink-0">📍</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
+        {showResult && (
+          <div className="flex flex-col gap-px bg-rule">
+            {locations.map((loc, i) => {
+              const isSelected = selected.includes(i);
+              const lines = stationLines[loc.stationId] ?? [];
+              return (
+                <button
+                  key={loc.id}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => toggleSelected(i)}
+                  className={`grid w-full cursor-pointer grid-cols-[34px_minmax(0,1fr)] px-4.5 py-3.25 text-left text-ink hover:bg-row-hover ${
+                    isSelected ? "bg-accent-soft" : "bg-paper"
+                  }`}
+                >
+                  <span
+                    className={`pt-px font-mono text-[13px] ${
+                      isSelected ? "text-accent-text" : "text-faint"
+                    }`}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0">
+                    <span
+                      className={`block text-[15px] ${isSelected ? "font-semibold" : "font-medium"}`}
+                    >
+                      {loc.placeName}
+                      {lines.length > 0 && ` ${lines.join(", ")}`}
+                    </span>
+                    {myTravelTimes[loc.id] !== undefined && (
+                      <span className="mt-0.75 block font-mono text-xs text-muted">
+                        이동시간 약 {formatTravelTime(myTravelTimes[loc.id])}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

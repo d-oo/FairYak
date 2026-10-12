@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import InviteSearchPanel, {
   type InviteTarget,
 } from "@/app/dashboard/_components/InviteSearchPanel";
+import Modal, { MODAL_ERROR_CLASS } from "@/app/dashboard/_components/Modal";
 
 interface Props {
   meetingId: number;
@@ -92,52 +93,25 @@ export default function InviteModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#f0f0f0] sticky top-0 bg-white rounded-t-2xl">
-          <h2 className="text-base font-bold text-[#0d1f2d]">인원 초대</h2>
-          <button
-            onClick={onClose}
-            className="text-[#9ca3af] hover:text-[#374151] transition-colors cursor-pointer text-xl leading-none"
-          >
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <InviteSearchPanel
-            userEmail={userEmail}
-            inviteList={inviteList}
-            onListChange={setInviteList}
-            onSearch={handleSearch}
-          />
-
-          {submitError && (
-            <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-xl">
-              {submitError}
-            </p>
-          )}
-
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-[#e5e7eb] text-sm font-semibold text-[#6b7280] hover:bg-[#f8f9fa] transition-colors cursor-pointer"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={inviteList.length === 0 || isSubmitting}
-              className="flex-1 py-3 rounded-xl bg-[#0d1f2d] text-white text-sm font-bold hover:bg-[#1a3244] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {isSubmitting
-                ? "초대 중..."
-                : `초대 보내기 (${inviteList.length}명)`}
-            </button>
-          </div>
-        </form>
+    <Modal
+      title="인원 초대"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      primaryLabel={
+        isSubmitting ? "초대 중..." : `초대 보내기 (${inviteList.length}명)`
+      }
+      primaryDisabled={inviteList.length === 0 || isSubmitting}
+    >
+      <div className="flex flex-col gap-2">
+        <InviteSearchPanel
+          userEmail={userEmail}
+          inviteList={inviteList}
+          onListChange={setInviteList}
+          onSearch={handleSearch}
+        />
       </div>
-    </div>
+
+      {submitError && <p className={MODAL_ERROR_CLASS}>{submitError}</p>}
+    </Modal>
   );
 }

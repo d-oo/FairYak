@@ -14,7 +14,7 @@ interface Props {
   initialFreeDates: string[];
 }
 
-// ── 내 현황 탭 ────────────────────────────────────────────────
+// ── 일정 관리 탭 ────────────────────────────────────────────────
 export default function MyStatus({
   userId,
   initialLocations,
@@ -81,66 +81,70 @@ export default function MyStatus({
         />
       )}
 
-      <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-3 gap-5">
-        {/* 왼쪽: 위치 */}
-        <div className="col-span-1">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e9ebee]">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-[#0d1f2d]">내 위치</h2>
+      <div className="flex flex-wrap items-start gap-5">
+        <Calendar
+          markedDates={freeDates}
+          onToggle={toggleDate}
+          className="min-w-0 flex-[999_1_520px]"
+        />
+
+        {/* 내 위치 */}
+        <section className="min-w-0 flex-[1_1_340px] border border-ink bg-paper">
+          <div className="flex items-center justify-between border-b border-ink px-5 py-4">
+            <div className="flex items-baseline gap-2.5">
+              <h2 className="text-base font-semibold">내 위치</h2>
+              <span className="font-mono text-xs text-faint">
+                {locations.length}
+              </span>
+            </div>
+            <button
+              onClick={() => setShowModal(true)}
+              className="h-7.5 cursor-pointer border border-ink px-3 text-[13px] font-medium text-ink hover:bg-page"
+            >
+              + 추가
+            </button>
+          </div>
+
+          {locations.length === 0 ? (
+            <div className="px-5 py-9 text-center">
+              <p className="text-[13px] text-faint">저장된 위치가 없어요</p>
               <button
                 onClick={() => setShowModal(true)}
-                className="text-xs font-semibold text-[#4ecdc4] hover:text-[#3dbdb4] transition-colors cursor-pointer"
+                className="mt-2.5 cursor-pointer text-[13px] font-semibold text-ink underline underline-offset-3"
               >
-                + 추가
+                위치 추가하기
               </button>
             </div>
-
-            {locations.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-3xl mb-2">📍</p>
-                <p className="text-xs text-[#9ca3af]">저장된 위치가 없어요</p>
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="mt-3 text-xs text-[#4ecdc4] font-semibold hover:underline cursor-pointer"
+          ) : (
+            <ul className="flex flex-col gap-px bg-rule">
+              {locations.map((loc) => (
+                <li
+                  key={loc.name}
+                  className="group flex items-center gap-3.5 bg-paper px-5 py-3.5 hover:bg-row-hover"
                 >
-                  위치 추가하기
-                </button>
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {locations.map((loc) => (
-                  <li
-                    key={loc.name}
-                    className="group flex items-start justify-between px-3 py-2.5 rounded-xl bg-[#f8f9fa] hover:bg-[#f0f2f5] transition-colors"
+                  {/* 지도 썸네일 자리. 좌표를 따로 불러오지 않아 바탕색과 핀만 둔다 */}
+                  <div className="relative size-14 flex-none border border-ink bg-map-bg">
+                    <span className="absolute top-1/2 left-1/2 -mt-[4.5px] -ml-[4.5px] size-2.25 bg-accent shadow-halo" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-semibold">{loc.name}</p>
+                    <p className="mt-0.5 truncate text-[13px] text-muted">
+                      {loc.address}
+                    </p>
+                  </div>
+                  {/* 마우스로 쓸 때는 행에 올렸을 때만 보인다. 터치 화면은 hover가 없으므로 항상 보인다 */}
+                  <button
+                    onClick={() => deleteLocation(loc.name)}
+                    aria-label={`${loc.name} 삭제`}
+                    className="cursor-pointer p-1.5 text-[13px] text-faint hover:text-accent-text focus-visible:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
                   >
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <span className="text-base mt-0.5 shrink-0">📍</span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#374151] truncate">
-                          {loc.name}
-                        </p>
-                        <p className="text-xs text-[#9ca3af] truncate mt-0.5">
-                          {loc.address}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deleteLocation(loc.name)}
-                      className="text-[#d1d5db] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer text-xs leading-none shrink-0 ml-2 mt-1"
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-
-        {/* 오른쪽: 달력 */}
-        <div className="col-span-2">
-          <Calendar markedDates={freeDates} onToggle={toggleDate} />
-        </div>
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </>
   );
