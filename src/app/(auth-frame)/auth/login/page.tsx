@@ -9,7 +9,7 @@ import {
   INPUT_CLASS,
   LINK_CLASS,
   SUBMIT_CLASS,
-} from "@/app/auth/_components/styles";
+} from "@/app/(auth-frame)/auth/_components/styles";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,16 +57,8 @@ export default function LoginPage() {
           />
         </label>
 
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[13px] font-semibold">비밀번호</span>
-            <button
-              type="button"
-              className="cursor-pointer text-xs text-muted underline underline-offset-3"
-            >
-              비밀번호를 잊으셨나요?
-            </button>
-          </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold">비밀번호</span>
           <input
             type="password"
             value={password}
@@ -75,7 +67,7 @@ export default function LoginPage() {
             required
             className={INPUT_CLASS}
           />
-        </div>
+        </label>
 
         {error && <p className={ERROR_CLASS}>{error}</p>}
 

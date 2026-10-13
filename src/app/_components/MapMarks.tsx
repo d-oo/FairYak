@@ -5,29 +5,31 @@ interface Point {
   y: number;
 }
 
-// 멤버 출발지 핀 + 오른쪽 라벨. 나는 주홍
+// 멤버 출발지 핀 + 오른쪽 라벨(없으면 핀만). 나는 주홍
 export function MemberPin({
   x,
   y,
   label,
   isMe,
   labelX = 12,
-}: Point & { label: string; isMe: boolean; labelX?: number }) {
+}: Point & { label?: string; isMe: boolean; labelX?: number }) {
   return (
     <div className="absolute size-0" style={{ left: x, top: y }}>
       <div
         className={`absolute -left-1.5 -top-1.5 size-3 shadow-halo ${isMe ? "bg-accent" : "bg-ink"}`}
       />
-      <div
-        className={`absolute -top-2.75 whitespace-nowrap border px-1.75 py-px font-mono text-xs leading-4.5 font-medium ${
-          isMe
-            ? "border-accent bg-accent text-white"
-            : "border-ink bg-paper text-ink"
-        }`}
-        style={{ left: labelX }}
-      >
-        {label}
-      </div>
+      {label && (
+        <div
+          className={`absolute -top-2.75 whitespace-nowrap border px-1.75 py-px font-mono text-xs leading-4.5 font-medium ${
+            isMe
+              ? "border-accent bg-accent text-white"
+              : "border-ink bg-paper text-ink"
+          }`}
+          style={{ left: labelX }}
+        >
+          {label}
+        </div>
+      )}
     </div>
   );
 }

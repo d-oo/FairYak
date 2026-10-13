@@ -9,7 +9,7 @@ import {
   INPUT_CLASS,
   LINK_CLASS,
   SUBMIT_CLASS,
-} from "@/app/auth/_components/styles";
+} from "@/app/(auth-frame)/auth/_components/styles";
 
 export default function SignupPage() {
   const router = useRouter();

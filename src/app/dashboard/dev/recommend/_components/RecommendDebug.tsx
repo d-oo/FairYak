@@ -90,7 +90,7 @@ function stageText(c: CandidateTrace, resultCount: number): string {
     case "unreachable":
       return "갈 수 없는 멤버 있음";
     case "venueLow":
-      return "상권 부족으로 맨 뒤로";
+      return "상권 부족으로 제외";
     case "notQueried":
       return "우선순위에서 밀려 조회 안 함";
   }
@@ -450,6 +450,15 @@ export default function RecommendDebug() {
                 .join("  ") || "갈 수 있는 역 없음"}
             </p>
             <p className="text-xs text-gray-500">
+              멤버별 근처 노선(반경 {result.params.MEMBER_STATION_RADIUS_METERS / 1000}km):{" "}
+              {result.trace.memberLines
+                .map(
+                  (lines, i) =>
+                    `${members[i] ? memberLabel(members[i], i) : `M${i + 1}`} ${lines.length > 0 ? lines.join(", ") : "없음"}`,
+                )
+                .join(" · ")}
+            </p>
+            <p className="text-xs text-gray-500">
               멤버별 추정 속도(직선 1km당):{" "}
               {result.trace.memberMinutesPerKm
                 .map(
@@ -482,6 +491,7 @@ export default function RecommendDebug() {
                   <th className="px-2 py-2 text-left">노선</th>
                   <th className="px-2 py-2 text-right">가장 먼 멤버까지</th>
                   <th className="px-2 py-2 text-center">허브 우선</th>
+                  <th className="px-2 py-2 text-right">직결 멤버</th>
                   <th className="px-2 py-2 text-right">추정 최대</th>
                   <th className="px-2 py-2 text-right">음식점+카페</th>
                   <th className="px-2 py-2 text-center">조회</th>
@@ -515,6 +525,9 @@ export default function RecommendDebug() {
                         {(c.maxMeters / 1000).toFixed(1)}km
                       </td>
                       <td className="px-2 py-1.5 text-center">{c.nearBest ? "✓" : ""}</td>
+                      <td className="px-2 py-1.5 text-right">
+                        {c.linkedMembers}/{result.trace.memberLines.length}
+                      </td>
                       <td className="px-2 py-1.5 text-right">
                         {c.estMaxMinutes === null ? "-" : `${Math.round(c.estMaxMinutes)}분`}
                       </td>
