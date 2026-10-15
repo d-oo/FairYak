@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 추천 알고리즘 정답표 (scripts/ground-truth-build.mts). 카카오 이동시간 원본이라 정책상 저장 금지인데,
+# 알고리즘 검증을 위해 로컬에만 잠시 둔다. 검증이 끝나면 삭제하며 절대 커밋하지 않는다
+/data/ground-truth/

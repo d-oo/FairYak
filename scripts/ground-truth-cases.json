@@ -1,0 +1,40 @@
+{
+  "comment": "정답표 사례. 멤버는 역 이름(station) 또는 좌표(label, lat, lng)로 적는다. 좌표는 카카오 응답이 아니라 직접 정한 값이라 커밋해도 된다.",
+  "cases": [
+    {
+      "id": "hongdae-jamsil-nowon",
+      "label": "홍대·잠실·노원 (상왕십리 사례)",
+      "members": [{ "station": "홍대입구역" }, { "station": "잠실역" }, { "station": "노원역" }]
+    },
+    {
+      "id": "seoul-five",
+      "label": "서울 곳곳 5명",
+      "members": [
+        { "station": "강남역" },
+        { "station": "신촌역" },
+        { "station": "건대입구역" },
+        { "station": "노원역" },
+        { "station": "구로디지털단지역" }
+      ]
+    },
+    {
+      "id": "one-far",
+      "label": "한 명만 먼 3명 (수원)",
+      "members": [{ "station": "강남역" }, { "station": "사당역" }, { "station": "수원역" }]
+    },
+    {
+      "id": "two-ilsan-bundang",
+      "label": "2명 (일산·분당)",
+      "members": [{ "station": "주엽역" }, { "station": "서현역" }]
+    },
+    {
+      "id": "off-station",
+      "label": "역에서 먼 출발지 포함 (서울대 관악캠퍼스)",
+      "members": [
+        { "label": "서울대 관악캠퍼스", "lat": 37.46, "lng": 126.952 },
+        { "station": "홍대입구역" },
+        { "station": "왕십리역" }
+      ]
+    }
+  ]
+}

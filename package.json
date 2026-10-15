@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "data:stations": "node scripts/build-stations.mts"
+    "data:stations": "node scripts/build-stations.mts",
+    "gt:build": "node --import ./scripts/app-imports.mjs scripts/ground-truth-build.mts",
+    "gt:eval": "node --import ./scripts/app-imports.mjs scripts/ground-truth-eval.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

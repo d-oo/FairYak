@@ -466,7 +466,8 @@ export default function RecommendDebug() {
                     `${members[i] ? memberLabel(members[i], i) : `M${i + 1}`} ${v === null ? "추정 불가" : `${v.toFixed(2)}분`}`,
                 )
                 .join(" · ")}{" "}
-              · 2단계: 추정 최대 이동시간 상위 {result.params.REFINE_POOL}개 중{" "}
+              · 2단계: 속도 모델 + 근처 조회 역 오차 보정(반경{" "}
+              {result.params.RESIDUAL_RANGE_METERS / 1000}km)으로 추정한 점수 상위{" "}
               {result.params.REFINE_CANDIDATES}개 추가 조회
             </p>
             <p className="text-xs text-gray-500">
@@ -474,8 +475,9 @@ export default function RecommendDebug() {
               {(result.trace.bestMeters / 1000).toFixed(1)}km, 허브 우선 그룹 = 최선 +{" "}
               {result.params.STRAIGHT_TOLERANCE_METERS / 1000}km 이내) · 상권 기준{" "}
               {result.params.MIN_VENUES}곳 (반경 {result.params.VENUE_RADIUS_METERS}m) · 이동시간
-              조회 {result.params.TRANSIT_CANDIDATES}개 역 · 점수 = 최대 +{" "}
-              {result.params.SCORE_AVG_WEIGHT} × 평균 (낮을수록 상위) · 호출 장소검색{" "}
+              조회 {result.params.TRANSIT_CANDIDATES}개 역 · 점수 ={" "}
+              {Number((1 - result.params.SCORE_AVG_RATIO).toFixed(2))} × 최대 +{" "}
+              {Number(result.params.SCORE_AVG_RATIO.toFixed(2))} × 평균 (분, 낮을수록 상위) · 호출 장소검색{" "}
               {result.trace.calls.local}건 / 이동시간 {result.trace.calls.transit}건 ·{" "}
               {(result.elapsedMs / 1000).toFixed(1)}초
             </p>
@@ -538,6 +540,7 @@ export default function RecommendDebug() {
                       </td>
                       <td className="px-2 py-1.5 text-center">
                         {c.queriedIn === null ? "-" : `${c.queriedIn}단계`}
+                        {c.refineRatio !== null && ` (α ${Number(c.refineRatio.toFixed(2))})`}
                       </td>
                       <td className="px-2 py-1.5">
                         {c.transitMinutes

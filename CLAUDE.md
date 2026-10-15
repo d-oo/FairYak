@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 데이터 접근은 RLS에 전적으로 의존
 
 - 클라이언트 컴포넌트가 `@supabase/supabase-js`로 Postgres에 직접 접근하며, DB를 감싸는 API 레이어는 없다. 인가는 전부 RLS 정책이 담당한다. `src/app/api/**` 라우트는 서버 전용 `KAKAO_REST_API_KEY`를 숨기기 위해 존재하며, 카카오 호출 로직은 `src/utils/kakao/*`에 있다.
-- **카카오 API 응답은 저장하지 않는다.** 대중교통 경로 조회 결과는 DB 저장·임시 캐싱이 금지이고, 로컬 API(장소 검색)가 반환한 장소명도 DB 저장이 금지다(장소 ID·place_url만 허용). 요청 처리 중 메모리에서 비교·계산하고 버리는 것은 허용된다. 이동시간은 `/api/transit/time`(하루 무료 1,000건)으로 필요할 때마다 조회한다.
+- **카카오 API 응답은 저장하지 않는다.** 대중교통 경로 조회 결과는 DB 저장·임시 캐싱이 금지이고, 로컬 API(장소 검색)가 반환한 장소명도 DB 저장이 금지다(장소 ID·place_url만 허용). 요청 처리 중 메모리에서 비교·계산하고 버리는 것은 허용된다. 이동시간은 `/api/transit/time`(하루 무료 1,000건)으로 필요할 때마다 조회한다. (임시 예외: 추천 알고리즘 검증용 정답표 `data/ground-truth/`는 이동시간을 로컬에 저장한다. gitignore 대상이며 커밋 금지, 검증이 끝나면 삭제한다 — `docs/todos.md` 위치 추천 3번.)
 - 추천 장소 후보는 공공데이터 역 목록 `src/data/stations.json`(국가철도공단 전국도시철도역사정보표준데이터, `npm run data:stations`로 `data/raw/`의 XLSX에서 생성)이다. 공공데이터라 역 이름·좌표를 저장해도 된다. 추천 계산은 `/api/location/recommend`가 하고, 결과는 역 id(`station_id`)와 순위(`rank`)로 저장한다.
 - RLS에 막힌 select는 에러가 아니라 빈 배열을 반환한다. 쿼리 결과가 이유 없이 비어 있으면 정책부터 의심할 것.
 - `profiles`는 전체 공개가 아니므로 이메일로 사용자를 찾을 때는 `find_profile_by_email` RPC를 쓴다.

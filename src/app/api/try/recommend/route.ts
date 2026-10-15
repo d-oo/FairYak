@@ -5,6 +5,7 @@ import {
   RECOMMEND_PARAMS,
   SCORE_MODES,
   STATION_COUNT,
+  TRY_REFINE_RATIOS,
   rankCandidates,
   recommendStations,
   type ScoreMode,
@@ -40,8 +41,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // 후보 목록 하나로 세 기준을 모두 매기므로 2단계 자리도 기준별로 나눠 쓴다
     const { trace } = await recommendStations(
       members.map((m: { lat: number; lng: number }) => ({ lat: m.lat, lng: m.lng })),
+      { refineRatios: TRY_REFINE_RATIOS },
     );
     const processInfo = {
       stationCount: STATION_COUNT,
