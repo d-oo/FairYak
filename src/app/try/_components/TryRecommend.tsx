@@ -58,9 +58,12 @@ const SCORE_MODE_OPTIONS: ScoreModeOption[] = [
   },
 ];
 
-const ERROR_MESSAGES: Record<number, string> = {
-  429: "오늘 이동시간 조회 한도를 초과했어요. 스태프에게 알려주세요",
-  422: "대중교통으로 모두가 갈 수 있는 역을 찾지 못했어요. 아래 추천 과정에서 이유를 볼 수 있어요",
+// /api/try/recommend 실패 코드(error)별 안내 문구
+const ERROR_MESSAGES: Record<string, string> = {
+  quota_exceeded: "오늘 장소 검색 한도를 초과했어요. 스태프에게 알려주세요",
+  closed: "오늘 체험이 마감됐어요. 찾아와 주셔서 감사해요!",
+  no_reachable_station:
+    "대중교통으로 모두가 갈 수 있는 역을 찾지 못했어요. 추천 과정에서 이유를 볼 수 있어요",
 };
 
 let nextSlotKey = 0;
@@ -83,6 +86,8 @@ export default function TryRecommend() {
   const [selected, setSelected] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 카카오 무료 쿼터와 TMAP 월간 상한을 모두 써서 더 추천할 수 없는 상태
+  const [isClosed, setIsClosed] = useState(false);
 
   const filled = slots.flatMap((s) => (s.place ? [s.place] : []));
   const modeOption = SCORE_MODE_OPTIONS.find((o) => o.id === mode)!;
@@ -127,12 +132,16 @@ export default function TryRecommend() {
         }),
       });
       const data: {
+        error?: string;
         stations?: RecommendedStation[];
         rankings?: Record<ScoreMode, string[]>;
         process?: TryProcessData;
       } = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(ERROR_MESSAGES[res.status] ?? "추천 중 오류가 발생했어요");
+        setError(
+          (data.error && ERROR_MESSAGES[data.error]) ?? "추천 중 오류가 발생했어요",
+        );
+        if (data.error === "closed") setIsClosed(true);
       } else {
         setReachable(data.stations ?? null);
         setRankings(data.rankings ?? null);
@@ -251,10 +260,10 @@ export default function TryRecommend() {
           <button
             type="button"
             onClick={recommend}
-            disabled={filled.length < MIN_PLACES || isLoading}
+            disabled={filled.length < MIN_PLACES || isLoading || isClosed}
             className="flex h-12 w-full cursor-pointer items-center justify-center border-t border-ink bg-accent text-[15px] font-semibold text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isLoading ? "계산 중..." : "중간 장소 추천받기"}
+            {isClosed ? "오늘 체험 마감" : isLoading ? "계산 중..." : "중간 장소 추천받기"}
           </button>
         </section>
 

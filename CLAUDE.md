@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `src/utils/supabase/middleware.ts`에 라우트 보호용 미들웨어가 있지만 **이를 연결하는 루트 `middleware.ts`가 없어 실제로는 동작하지 않는다.** 실제 인증 검사는 각 보호된 레이아웃/페이지(예: `src/app/dashboard/layout.tsx`)가 서버 측에서 `auth.getUser()`로 재검사하고 비로그인 시 `redirect("/")`하는 쪽이다. Supabase 클라이언트는 실행 위치(브라우저/서버/미들웨어)에 맞는 `src/utils/supabase/*` 팩토리를 쓴다.
 
-예외로 졸업전시 체험 모드(`/try`, `/api/try/*`)는 로그인 없이 전시용 키 쿠키로 접근한다(`src/utils/exhibition.ts`, 환경변수 `EXHIBITION_KEY`). 카카오 쿼터를 쓰는 API 라우트는 `isLoggedInOrExhibition()` 등으로 로그인 또는 전시 쿠키를 확인할 것.
+예외로 졸업전시 체험 모드(`/try`, `/api/try/*`)는 로그인 없이 전시용 키 쿠키로 접근한다(`src/utils/exhibition.ts`, 환경변수 `EXHIBITION_KEY`). 카카오 쿼터를 쓰는 API 라우트는 `isLoggedInOrExhibition()` 등으로 로그인 또는 전시 쿠키를 확인할 것. 체험 모드만 카카오 대중교통 쿼터가 바닥나면 TMAP 대중교통(유료, `src/utils/tmap/*`)으로 넘어가며, TMAP 호출 전에 반드시 `reserveTmapCalls()`로 월간 상한(`tmap_usage` 테이블)을 예약한다. 이 예약은 서버 전용 secret key 클라이언트(`src/utils/supabase/admin.ts`, 환경변수 `SUPABASE_SECRET_KEY`)로만 하며, 이 키에는 `NEXT_PUBLIC_`을 붙이지 않는다.
 
 ### 데이터 접근은 RLS에 전적으로 의존
 
