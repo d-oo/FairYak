@@ -6,7 +6,7 @@ import {
   RECOMMEND_PARAMS,
   SCORE_MODES,
   STATION_COUNT,
-  TRY_REFINE_RATIOS,
+  TRY_REFINE_CRITERIA,
   rankCandidates,
   recommendStations,
   type RecommendTrace,
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       let transitQuotaHit = false;
       try {
         ({ trace } = await recommendStations(points, {
-          refineRatios: TRY_REFINE_RATIOS,
+          refineCriteria: TRY_REFINE_CRITERIA,
           fetchMinutes: async (start, end) => {
             try {
               return await fetchTransitMinutes(start, end);
@@ -93,13 +93,13 @@ export async function POST(req: NextRequest) {
     if (!trace) {
       // 카카오와 TMAP은 같은 구간도 몇 분씩 달라서 한 계산 안에서 섞지 않고, 처음부터 TMAP으로 다시 계산한다
       const maxCalls =
-        (RECOMMEND_PARAMS.TRANSIT_CANDIDATES + TRY_REFINE_RATIOS.length) * points.length;
+        (RECOMMEND_PARAMS.TRANSIT_CANDIDATES + TRY_REFINE_CRITERIA.length) * points.length;
       if (!(await reserveTmapCalls(maxCalls))) {
         return NextResponse.json({ error: "closed" }, { status: 429 });
       }
       transitProvider = "tmap";
       ({ trace } = await recommendStations(points, {
-        refineRatios: TRY_REFINE_RATIOS,
+        refineCriteria: TRY_REFINE_CRITERIA,
         fetchMinutes: fetchTmapTransitMinutes,
       }));
     }
@@ -133,9 +133,9 @@ export async function POST(req: NextRequest) {
     }
     // 기준마다 모두가 갈 수 있는 역 id를 순위대로
     const rankings = Object.fromEntries(
-      Object.entries(SCORE_MODES).map(([mode, weight]) => [
+      Object.entries(SCORE_MODES).map(([mode, criterion]) => [
         mode,
-        rankCandidates(trace.candidates, weight).map((c) => c.station.id),
+        rankCandidates(trace.candidates, criterion).map((c) => c.station.id),
       ]),
     ) as Record<ScoreMode, string[]>;
     return NextResponse.json({

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "data:stations": "node scripts/build-stations.mts",
     "gt:build": "node --import ./scripts/app-imports.mjs scripts/ground-truth-build.mts",
-    "gt:eval": "node --import ./scripts/app-imports.mjs scripts/ground-truth-eval.mts"
+    "gt:eval": "node --import ./scripts/app-imports.mjs scripts/ground-truth-eval.mts",
+    "gt:sweep": "node --import ./scripts/app-imports.mjs scripts/ground-truth-sweep.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

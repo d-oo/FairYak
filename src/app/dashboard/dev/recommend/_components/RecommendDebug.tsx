@@ -466,7 +466,7 @@ export default function RecommendDebug() {
                     `${members[i] ? memberLabel(members[i], i) : `M${i + 1}`} ${v === null ? "추정 불가" : `${v.toFixed(2)}분`}`,
                 )
                 .join(" · ")}{" "}
-              · 2단계: 속도 모델 + 근처 조회 역 오차 보정(반경{" "}
+              · 2단계: 속도 모델(직결 ×{result.params.DIRECT_LINE_FACTOR}) + 근처 조회 역 오차 보정(반경{" "}
               {result.params.RESIDUAL_RANGE_METERS / 1000}km)으로 추정한 점수 상위{" "}
               {result.params.REFINE_CANDIDATES}개 추가 조회
             </p>
@@ -540,7 +540,7 @@ export default function RecommendDebug() {
                       </td>
                       <td className="px-2 py-1.5 text-center">
                         {c.queriedIn === null ? "-" : `${c.queriedIn}단계`}
-                        {c.refineRatio !== null && ` (α ${Number(c.refineRatio.toFixed(2))})`}
+                        {c.refinedBy !== null && ` (${c.refinedBy})`}
                       </td>
                       <td className="px-2 py-1.5">
                         {c.transitMinutes

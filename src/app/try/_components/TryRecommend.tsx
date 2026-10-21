@@ -30,7 +30,7 @@ interface RecommendedStation {
 }
 
 // 순위 기준. "어느 역이 더 공평한가"는 사람마다 생각이 달라서 체험객이 직접 바꿔 보게 한다.
-// 기준별 순위는 서버가 한 번에 매겨 주므로 바꿔도 다시 조회하지 않는다 (가중치는 recommend.ts의 SCORE_MODES)
+// 기준별 순위는 서버가 한 번에 매겨 주므로 바꿔도 다시 조회하지 않는다 (기준별 공식은 recommend.ts의 SCORE_MODES)
 export interface ScoreModeOption {
   id: ScoreMode;
   label: string;
@@ -42,19 +42,19 @@ const SCORE_MODE_OPTIONS: ScoreModeOption[] = [
     id: "fair",
     label: "한 명도 멀지 않게",
     description:
-      "가장 오래 걸리는 사람의 시간을 가장 먼저 줄여요. 다른 사람들이 조금 더 걸리더라도 한 명만 멀리 가는 곳은 피해요.",
+      "가장 오래 걸리는 사람의 시간을 가장 먼저 줄여요. 여럿이 빨라지더라도 한 명이 더 멀어지는 곳은 피해요.",
   },
   {
     id: "balanced",
     label: "균형",
     description:
-      "가장 오래 걸리는 사람의 시간을 가장 크게 보고, 모두의 평균 시간도 함께 따져요.",
+      "오래 걸리는 사람일수록 1분을 더 무겁게 쳐요. 한 명이 조금 더 걸려도 여럿이 훨씬 빨라진다면 그쪽을 골라요.",
   },
   {
     id: "fast",
     label: "다 같이 빨리",
     description:
-      "모두의 이동시간을 합쳐서 짧은 곳을 앞세워요. 여럿이 빨라진다면 한 명이 조금 더 걸리는 건 감수해요.",
+      "모두의 이동시간이 고르게 짧은 곳을 앞세워요. 다만 한 사람만 유난히 멀어지는 곳은 피해요.",
   },
 ];
 

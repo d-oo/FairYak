@@ -11,15 +11,15 @@
 // [2단계: 이동시간 추정으로 추가 후보]
 //  4. 1단계 결과로 멤버마다 "직선 1km당 몇 분"인지 추정한다. 같은 거리라도 역에서 먼 동네에 사는 멤버는
 //     더 오래 걸리므로, 직선거리 중앙만 보면 후보가 빠른 멤버 쪽으로 치우친다.
-//  5. 멤버별 추정 이동시간 = 속도 × 직선거리 + 근처에서 조회한 역들의 실제 오차(실제 − 속도 모델)의 거리 가중 평균.
-//     같은 노선 방향이면 빠르고 노선을 가로지르면 느린 것처럼, 속도 하나로 못 잡는 방향성을 근처 역의 실제값으로 메운다.
+//  5. 멤버별 추정 이동시간 = 속도 × 직선거리(멤버 근처 노선이 그 역을 지나면 DIRECT_LINE_FACTOR배)
+//     + 근처에서 조회한 역들의 실제 오차(실제 − 속도 모델)의 거리 가중 평균.
+//     같은 노선 방향이면 빠르고 노선을 가로지르면 느린 것처럼, 속도 하나로 못 잡는 방향성을 직결 여부와 근처 역의 실제값으로 메운다.
 //  6. 아직 조회하지 않은 전국 역을 추정 이동시간으로 매긴 "추정 점수" 순으로 세워, 상권 기준을 통과한 역을
 //     2단계 자리(기본 REFINE_CANDIDATES개)만큼 추가로 조회한다. 체험 모드는 자리를 기준(SCORE_MODES)별로 나눠 쓴다
-//     (후보 목록 하나로 세 기준을 모두 매기므로, 평균 쪽 기준에 유리한 역도 조회 대상에 들어가게)
+//     (후보 목록 하나로 세 기준을 모두 매기므로, 기준마다 유리한 역이 모두 조회 대상에 들어가게)
 // [순위]
-//  7. 점수 = (1 − α) × 최대 이동시간 + α × 평균 이동시간 이 낮은 순 (α = SCORE_AVG_RATIO)
-//     (가장 오래 걸리는 멤버를 우선하되 전원의 이동시간도 항상 반영. 예전의 "허용 범위 안이면 합,
-//      밖이면 최대" 방식은 경계에서 1분 차이로 순위가 뒤집혀서 바꿨다)
+//  7. 기준(Criterion)의 점수가 낮은 순. 실제 모임은 meetingCriterion(), 체험 모드는 SCORE_MODES의 세 기준
+//     (예전의 "허용 범위 안이면 합, 밖이면 최대" 방식은 경계에서 1분 차이로 순위가 뒤집혀서 바꿨다)
 //
 // 음식점·카페 수와 이동시간은 카카오 API 응답이라 저장하지 않고 이 요청 안에서만 쓴다.
 
@@ -45,7 +45,7 @@ export const RECOMMEND_PARAMS = {
   TRANSIT_CONCURRENCY: 5,
   // 상권 확인을 동시에 몇 역씩 할지 (역 하나에 음식점·카페 2건). 한꺼번에 보내면 카카오 순간 요청 제한(-10)에 걸린다
   VENUE_CONCURRENCY: 4,
-  // 2단계에서 추가로 조회할 역 수 (체험 모드는 TRY_REFINE_RATIOS로 따로 정한다)
+  // 2단계에서 추가로 조회할 역 수 (체험 모드는 TRY_REFINE_CRITERIA로 따로 정한다)
   REFINE_CANDIDATES: 4,
   // 상권 부족으로 빠질 역을 감안해, 기준마다 자리 수의 몇 배까지 추정 점수 상위 역의 상권을 확인할지
   REFINE_POOL_FACTOR: 2,
@@ -53,37 +53,61 @@ export const RECOMMEND_PARAMS = {
   RESIDUAL_RANGE_METERS: 1500,
   // 오차 보정의 기본 가중치. 근처에 조회한 역이 없을수록 보정이 0(속도 모델 그대로)에 가까워진다
   RESIDUAL_PRIOR_WEIGHT: 0.3,
-  // 실제 모임 추천의 점수에서 평균 이동시간의 비율 α (0이면 최대 이동시간만, 1이면 평균만).
-  // 1/3은 예전 공식 "최대 + 0.5 × 평균"과 순위가 같다. 체험 모드에서 기준(SCORE_MODES)을 정한 뒤 balanced에 맞출 예정
+  // 2단계 추정에서 멤버 출발지 근처 노선이 그 역을 지나면(갈아타지 않고 바로 감) 속도 모델 이동시간에 곱하는 계수.
+  // 1이면 반영하지 않는다. 근처에 조회한 역이 없어 오차 보정이 안 닿는 곳에서 직결 여부를 구분하려는 것
+  // (예: 일산 주엽역 → 3호선 직결 신사역 54분 vs 환승 신논현역 69분). 추정에만 쓰고 순위는 실제 이동시간으로 매긴다.
+  // 0.8~1 중 정답표 학습용·검증용 사례에서 세 기준 모두 가장 고르게 좋았던 값
+  DIRECT_LINE_FACTOR: 0.9,
+  // 실제 모임 추천 점수 (1 − α) × 최대 + α × 평균 의 α. 1/3은 예전 공식 "최대 + 0.5 × 평균"과 순위가 같다.
+  // 체험 모드는 거듭제곱 평균(SCORE_MODES)으로 바꿨고, 실제 모임은 나중에 체험 모드에 맞춘다 (docs/todos.md)
   SCORE_AVG_RATIO: 1 / 3,
 };
 
 const P = RECOMMEND_PARAMS;
 
-// 순위 기준별 평균 이동시간의 비율 α (체험 화면에서 사람마다 골라 보는 용도. 모임 추천은 SCORE_AVG_RATIO를 쓴다).
-// 멤버 3명 기준으로 "최대 1분 = 합 몇 분"이 fair는 27분, balanced는 약 5.6분, fast는 약 0.33분이다.
-// balanced 0.35는 "멤버 한 명만 멀리 가는 역보다 다 같이 적당히 가는 역"을 3명·5명 예시 모두에서 고르는 범위(약 0.33~0.36)에서 골랐다.
-// α가 0~1이면 어느 기준이든 누가 빨라졌는데 점수가 나빠지는 일은 없다(최대·평균 모두 줄거나 그대로이므로)
-export const SCORE_MODES = {
-  fair: 0.1,
-  balanced: 0.35,
-  fast: 0.9,
-};
-export type ScoreMode = keyof typeof SCORE_MODES;
+// 순위 기준: 멤버별 이동시간(분) → 점수(분 단위, 낮을수록 좋다). label은 추천 과정·디버그 화면 표시용
+export interface Criterion {
+  label: string;
+  score: (minutes: number[]) => number;
+}
+
+// 거듭제곱 평균 (각자 이동시간의 p제곱의 평균)^(1/p). p = 1이면 평균, p가 커질수록 가장 오래 걸리는 사람 쪽으로
+// 간다(p → ∞이면 최대). 오래 걸리는 사람일수록 1분을 무겁게 치고, 누가 빨라지면 점수는 반드시 내려간다
+export function powerMeanCriterion(p: number): Criterion {
+  return {
+    label: `p ${p}`,
+    score: (minutes) => (minutes.reduce((a, t) => a + t ** p, 0) / minutes.length) ** (1 / p),
+  };
+}
+
+// 실제 모임 추천 기준: (1 − α) × 최대 + α × 평균 (α = SCORE_AVG_RATIO, 호출 시점의 값을 읽는다)
+export function meetingCriterion(): Criterion {
+  const alpha = P.SCORE_AVG_RATIO;
+  return {
+    label: `모임 (α ${Number(alpha.toFixed(2))})`,
+    score: (minutes) =>
+      (1 - alpha) * Math.max(...minutes) +
+      (alpha * minutes.reduce((a, b) => a + b, 0)) / minutes.length,
+  };
+}
+
+// 체험 모드 순위 기준의 p (사람마다 골라 보는 용도. 실제 모임은 meetingCriterion()을 쓴다).
+// 5명이 "한 명 60분·넷 20분" vs "모두 45~50분"일 때 fair는 모두 비슷한 쪽, balanced는 넷이 크게 빨라지는 쪽을
+// 고르고, 3명 "상왕십리 26/18/35 vs 신당 28/23/34"는 balanced가 합이 작은 상왕십리를 고르도록 정했다.
+// fast는 p 2라 평균 쪽이면서도 "한 명 1분·한 명 47분" 같은 극단적인 역은 피한다
+export const SCORE_MODE_POWERS = { fair: 12, balanced: 5, fast: 2 };
+export type ScoreMode = keyof typeof SCORE_MODE_POWERS;
+export const SCORE_MODES = Object.fromEntries(
+  Object.entries(SCORE_MODE_POWERS).map(([mode, p]) => [mode, powerMeanCriterion(p)]),
+) as Record<ScoreMode, Criterion>;
 
 // 체험 모드의 2단계 자리 배분 (자리마다 어느 기준의 추정 점수로 고를지). 앞에서부터 고른다
-export const TRY_REFINE_RATIOS = [
+export const TRY_REFINE_CRITERIA = [
   SCORE_MODES.balanced,
   SCORE_MODES.fair,
   SCORE_MODES.fast,
   SCORE_MODES.balanced,
 ];
-
-// (1 − avgRatio) × 최대 + avgRatio × 평균 (분). 낮을수록 좋다
-export function scoreOf(minutes: number[], avgRatio: number): number {
-  const avg = minutes.reduce((a, b) => a + b, 0) / minutes.length;
-  return (1 - avgRatio) * Math.max(...minutes) + avgRatio * avg;
-}
 
 export interface Station {
   id: string;
@@ -111,8 +135,8 @@ export interface CandidateTrace {
   linkedMembers: number;
   // 멤버별 속도와 근처 조회 역의 오차로 추정한 최대 이동시간(분). 속도를 추정하지 못했으면 null
   estMaxMinutes: number | null;
-  // 2단계에서 어느 기준(평균 비율 α)의 추정 점수로 골랐는지. 2단계에서 조회하지 않았으면 null
-  refineRatio: number | null;
+  // 2단계에서 어느 기준(Criterion.label)의 추정 점수로 골랐는지. 2단계에서 조회하지 않았으면 null
+  refinedBy: string | null;
   // 반경 안 음식점+카페 수. 조회 실패면 null (통과로 처리)
   venues: number | null;
   // 상권 부족이라 후보에서 뺐는지
@@ -123,7 +147,7 @@ export interface CandidateTrace {
   transitMinutes: (number | null)[] | null;
   maxMinutes: number | null;
   sumMinutes: number | null;
-  // (1 − SCORE_AVG_RATIO) × 최대 + SCORE_AVG_RATIO × 평균. 낮을수록 좋다
+  // 실제 모임 기준(meetingCriterion) 점수. 낮을수록 좋다. 한 명이라도 갈 수 없으면 null
   score: number | null;
   // 최종 순위(1부터). 이동시간 조회를 안 했거나 갈 수 없는 멤버가 있으면 null
   rank: number | null;
@@ -177,7 +201,7 @@ function newTrace(
     nearBest: false,
     linkedMembers,
     estMaxMinutes: null,
-    refineRatio: null,
+    refinedBy: null,
     venues,
     venueLow: venues !== null && venues < P.MIN_VENUES,
     queriedIn: null,
@@ -195,15 +219,15 @@ function byScore(a: CandidateTrace, b: CandidateTrace): number {
   return a.score! - b.score! || (b.venues ?? 0) - (a.venues ?? 0);
 }
 
-// 모두가 갈 수 있는 후보를 주어진 평균 비율 α의 점수로 다시 정렬한다 (같으면 상권이 큰 순).
+// 모두가 갈 수 있는 후보를 주어진 기준의 점수로 다시 정렬한다 (같으면 상권이 큰 순).
 // 이동시간을 다시 조회하지 않으므로 기준을 여러 개 매겨도 카카오 호출은 늘지 않는다
 export function rankCandidates(
   candidates: CandidateTrace[],
-  avgRatio: number,
+  criterion: Criterion,
 ): CandidateTrace[] {
   return candidates
     .filter((c) => c.score !== null)
-    .map((c) => ({ c, score: scoreOf(c.transitMinutes as number[], avgRatio) }))
+    .map((c) => ({ c, score: criterion.score(c.transitMinutes as number[]) }))
     .sort((a, b) => a.score - b.score || (b.c.venues ?? 0) - (a.c.venues ?? 0))
     .map(({ c }) => c);
 }
@@ -218,8 +242,10 @@ export type TransitMinutesFetcher = (
 export interface RecommendOptions {
   // 이동시간 조회 함수 (기본: 카카오)
   fetchMinutes?: TransitMinutesFetcher;
-  // 2단계 자리마다 고를 기준(평균 비율 α). 기본은 REFINE_CANDIDATES자리 모두 SCORE_AVG_RATIO
-  refineRatios?: number[];
+  // 2단계 자리마다 고를 기준. 기본은 REFINE_CANDIDATES자리 모두 실제 모임 기준(meetingCriterion)
+  refineCriteria?: Criterion[];
+  // 상권 수 조회 함수 (기본: 카카오 장소 검색). 정답표 평가가 한 실행 안에서 메모리로 재사용하려고 바꿔 끼운다
+  countVenues?: (station: Station) => Promise<number | null>;
 }
 
 // 쿼터 초과 시 KakaoQuotaExceededError를 던진다
@@ -227,7 +253,8 @@ export async function recommendStations(
   members: LatLng[],
   {
     fetchMinutes = fetchTransitMinutes,
-    refineRatios = Array(P.REFINE_CANDIDATES).fill(P.SCORE_AVG_RATIO),
+    refineCriteria = Array(P.REFINE_CANDIDATES).fill(meetingCriterion()),
+    countVenues: venuesOf = countVenues,
   }: RecommendOptions = {},
 ): Promise<RecommendResult> {
   const maxMetersOf = (s: Station) =>
@@ -243,6 +270,8 @@ export async function recommendStations(
     memberLines.filter((lines) => lines.some((l) => s.lines.includes(l))).length;
   let localCalls = 0;
   let transitCalls = 0;
+
+  const meeting = meetingCriterion();
 
   // 후보 × 멤버 이동시간을 조회해 trace에 채운다
   async function queryTransit(targets: CandidateTrace[], round: 1 | 2) {
@@ -262,7 +291,7 @@ export async function recommendStations(
       const valid = times as number[];
       c.maxMinutes = Math.max(...valid);
       c.sumMinutes = valid.reduce((a, b) => a + b, 0);
-      c.score = scoreOf(valid, P.SCORE_AVG_RATIO);
+      c.score = meeting.score(valid);
     });
   }
 
@@ -273,7 +302,7 @@ export async function recommendStations(
     .slice(0, P.PREFILTER_COUNT);
   localCalls += nearest.length * 2;
   const venueCounts = await mapWithConcurrency(nearest, P.VENUE_CONCURRENCY, (n) =>
-    countVenues(n.station),
+    venuesOf(n.station),
   );
   const bestMeters = nearest[0].maxMeters;
   const candidates: CandidateTrace[] = nearest
@@ -326,7 +355,8 @@ export async function recommendStations(
     const fallback = median(known);
     const speeds = memberMinutesPerKm.map((v) => v ?? fallback);
     const modelMinutes = (s: Station, mi: number) =>
-      (speeds[mi] * distanceMeters(s, members[mi])) / 1000;
+      ((speeds[mi] * distanceMeters(s, members[mi])) / 1000) *
+      (memberLines[mi].some((l) => s.lines.includes(l)) ? P.DIRECT_LINE_FACTOR : 1);
     // 1단계에서 조회한 역마다 멤버별 "실제 − 속도 모델" 오차 (경로 없음은 null)
     const residuals = round1.map((c) => ({
       station: c.station,
@@ -355,21 +385,21 @@ export async function recommendStations(
     const unqueried = stations
       .filter((s) => !queriedIds.has(s.id))
       .map((station) => ({ station, est: estimateMinutes(station) }));
-    // 기준(α)마다 추정 점수 순으로 세운 목록
-    const ratios = [...new Set(refineRatios)];
-    const rankedByRatio = new Map(
-      ratios.map((ratio) => [
-        ratio,
+    // 기준마다 추정 점수 순으로 세운 목록
+    const criteria = [...new Set(refineCriteria)];
+    const rankedByCriterion = new Map(
+      criteria.map((criterion) => [
+        criterion,
         unqueried
-          .map((u) => ({ ...u, score: scoreOf(u.est, ratio) }))
+          .map((u) => ({ ...u, score: criterion.score(u.est) }))
           .sort((a, b) => a.score - b.score),
       ]),
     );
     // 기준마다 (자리 수 × REFINE_POOL_FACTOR)개씩 모아 상권을 확인한다
     const pool = new Map<string, (typeof unqueried)[number]>();
-    for (const ratio of ratios) {
-      const slots = refineRatios.filter((r) => r === ratio).length;
-      for (const u of rankedByRatio.get(ratio)!.slice(0, slots * P.REFINE_POOL_FACTOR))
+    for (const criterion of criteria) {
+      const slots = refineCriteria.filter((c) => c === criterion).length;
+      for (const u of rankedByCriterion.get(criterion)!.slice(0, slots * P.REFINE_POOL_FACTOR))
         pool.set(u.station.id, u);
     }
 
@@ -378,7 +408,7 @@ export async function recommendStations(
     const fresh = [...pool.values()].filter((p) => !byId.has(p.station.id));
     localCalls += fresh.length * 2;
     const freshVenues = await mapWithConcurrency(fresh, P.VENUE_CONCURRENCY, (p) =>
-      countVenues(p.station),
+      venuesOf(p.station),
     );
     fresh.forEach((p, i) => {
       const c = newTrace(
@@ -395,13 +425,13 @@ export async function recommendStations(
 
     // 자리마다 그 기준의 추정 점수가 가장 좋은, 상권 기준을 통과한 역을 고른다
     const round2: CandidateTrace[] = [];
-    for (const ratio of refineRatios) {
-      const pick = rankedByRatio
-        .get(ratio)!
+    for (const criterion of refineCriteria) {
+      const pick = rankedByCriterion
+        .get(criterion)!
         .map((u) => byId.get(u.station.id))
         .find((c) => c && pool.has(c.station.id) && !c.venueLow && !round2.includes(c));
       if (!pick) continue;
-      pick.refineRatio = ratio;
+      pick.refinedBy = criterion.label;
       round2.push(pick);
     }
     await queryTransit(round2, 2);

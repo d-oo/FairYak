@@ -1,0 +1,9 @@
+{
+  "comment": "gt:sweep으로 비교할 조합. set은 RECOMMEND_PARAMS 값, refine은 2단계 자리별 기준(α). 없으면 지금 값과 체험 모드 배분.",
+  "configs": [
+    { "name": "지금 (직결 계수 0.9)" },
+    { "name": "직결 계수 1 (반영 안 함)", "set": { "DIRECT_LINE_FACTOR": 1 } },
+    { "name": "직결 계수 0.95", "set": { "DIRECT_LINE_FACTOR": 0.95 } },
+    { "name": "직결 계수 0.85", "set": { "DIRECT_LINE_FACTOR": 0.85 } }
+  ]
+}

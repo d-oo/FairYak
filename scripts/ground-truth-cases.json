@@ -35,6 +35,114 @@
         { "station": "홍대입구역" },
         { "station": "왕십리역" }
       ]
+    },
+    {
+      "id": "clustered-gangnam-ilsan",
+      "label": "멤버가 한쪽에 몰림 (강남 2명·일산)",
+      "members": [{ "station": "강남역" }, { "station": "역삼역" }, { "station": "주엽역" }]
+    },
+    {
+      "id": "wide-metro",
+      "label": "수도권 넓게 퍼짐 (인천·의정부·분당)",
+      "members": [{ "station": "부평역" }, { "station": "의정부역" }, { "station": "서현역" }]
+    },
+    {
+      "id": "busan",
+      "label": "부산 3명",
+      "members": [{ "station": "서면역" }, { "station": "해운대역" }, { "station": "사상역" }]
+    },
+    {
+      "id": "daejeon-two",
+      "label": "대전 2명",
+      "members": [{ "station": "대전역" }, { "station": "유성온천역" }]
+    },
+    {
+      "id": "line2-only",
+      "label": "모두 2호선 (신림·성수·홍대입구)",
+      "members": [{ "station": "신림역" }, { "station": "성수역" }, { "station": "홍대입구역" }]
+    },
+    {
+      "id": "gangbuk-four",
+      "label": "4명 (강북·강동)",
+      "members": [{ "station": "수유역" }, { "station": "연신내역" }, { "station": "상계역" }, { "station": "천호역" }]
+    },
+    {
+      "id": "gyeonggi-south",
+      "label": "경기 남부 (광교·평촌·기흥)",
+      "members": [{ "station": "광교중앙역" }, { "station": "범계역" }, { "station": "기흥역" }]
+    },
+    {
+      "id": "clustered-hongdae-jamsil",
+      "label": "멤버가 한쪽에 몰림 (홍대 2명·잠실)",
+      "members": [{ "station": "홍대입구역" }, { "station": "합정역" }, { "station": "잠실역" }]
+    },
+    {
+      "id": "clustered-suwon-gangnam",
+      "label": "멤버가 한쪽에 몰림 (수원 2명·강남)",
+      "members": [{ "station": "수원역" }, { "station": "광교중앙역" }, { "station": "강남역" }]
+    },
+    {
+      "id": "daegu-three",
+      "label": "대구 3명",
+      "members": [{ "station": "동대구역" }, { "station": "반월당역" }, { "station": "서대구역" }]
+    },
+    {
+      "id": "line-mix",
+      "label": "노선 직결이 엇갈림 (일산·오금·노원)",
+      "members": [{ "station": "대화역" }, { "station": "오금역" }, { "station": "노원역" }]
+    },
+    {
+      "id": "two-incheon-gangnam",
+      "label": "2명 (부평·강남)",
+      "members": [{ "station": "부평역" }, { "station": "강남역" }]
+    },
+    {
+      "id": "holdout-incheon-west",
+      "label": "인천·서울 서부 (송도·마곡·일산)",
+      "holdout": true,
+      "members": [{ "station": "송도달빛축제공원역" }, { "station": "마곡나루역" }, { "station": "대화역" }]
+    },
+    {
+      "id": "holdout-gyeonggi-east",
+      "label": "경기 동부 (미사·구리·불암산)",
+      "holdout": true,
+      "members": [{ "station": "미사역" }, { "station": "구리역" }, { "station": "불암산역" }]
+    },
+    {
+      "id": "holdout-gwangju-two",
+      "label": "광주 2명",
+      "holdout": true,
+      "members": [{ "station": "상무역" }, { "station": "금남로4가역" }]
+    },
+    {
+      "id": "holdout-off-station",
+      "label": "역에서 먼 출발지 포함 (은평뉴타운)",
+      "holdout": true,
+      "members": [{ "label": "은평뉴타운 (대략적인 좌표)", "lat": 37.6406, "lng": 126.9177 }, { "station": "강남역" }, { "station": "천호역" }]
+    },
+    {
+      "id": "holdout-clustered",
+      "label": "멤버가 한쪽에 몰림 (잠실·천호·인천)",
+      "holdout": true,
+      "members": [{ "station": "잠실역" }, { "station": "천호역" }, { "station": "인천터미널역" }]
+    },
+    {
+      "id": "holdout-near-two",
+      "label": "가까운 2명 (건대입구·성수)",
+      "holdout": true,
+      "members": [{ "station": "건대입구역" }, { "station": "성수역" }]
+    },
+    {
+      "id": "holdout-long-two",
+      "label": "먼 2명 (일산·수원)",
+      "holdout": true,
+      "members": [{ "station": "대화역" }, { "station": "수원역" }]
+    },
+    {
+      "id": "holdout-four",
+      "label": "4명 (김포공항·잠실·노원·사당)",
+      "holdout": true,
+      "members": [{ "station": "김포공항역" }, { "station": "잠실역" }, { "station": "노원역" }, { "station": "사당역" }]
     }
   ]
 }
