@@ -5,6 +5,7 @@
 //   npm run gt:eval -- --train       학습용 사례만 / --holdout 검증용 사례만
 //   npm run gt:eval -- --fill        정답표 밖의 역을 조회하면 그 역만 실제로 조회해 정답표에 보충하고 다시 채점
 //   npm run gt:eval -- --meeting     2단계 자리를 체험 모드(TRY_REFINE_CRITERIA)가 아니라 실제 모임 방식으로 배분해 채점
+//   npm run gt:eval -- --route       경로 기반 추정을 켜고 채점 (실서비스 기본값. 경로는 저장할 수 없어 실행마다 멤버 쌍 수만큼 실제로 조회한다)
 //   npm run gt:eval -- --refine=5,12,2,5                 2단계 자리별 기준(거듭제곱 평균의 p)을 직접 정해 채점
 //   npm run gt:eval -- --set=RESIDUAL_PRIOR_WEIGHT=1e9   RECOMMEND_PARAMS 값을 바꿔 채점 (여러 번 쓸 수 있음)
 //   여러 조합을 한 번에 비교하려면 npm run gt:sweep
@@ -19,10 +20,11 @@ import {
   RECOMMEND_PARAMS,
   SCORE_MODES,
   TRY_REFINE_CRITERIA,
-  powerMeanCriterion,
 } from "@/utils/recommend";
 import {
   caseFile,
+  criteriaFromPowers,
+  createRouteCache,
   createVenueCache,
   loadCases,
   type GroundTruth,
@@ -35,11 +37,12 @@ const args = process.argv.slice(2);
 const only = args.filter((a) => !a.startsWith("--"));
 const fill = args.includes("--fill");
 const meeting = args.includes("--meeting");
+const useRoutes = args.includes("--route");
 const trainOnly = args.includes("--train");
 const holdoutOnly = args.includes("--holdout");
 const refineArg = args.find((a) => a.startsWith("--refine="));
 const refineCriteria = refineArg
-  ? refineArg.slice("--refine=".length).split(",").map((p) => powerMeanCriterion(Number(p)))
+  ? criteriaFromPowers(refineArg.slice("--refine=".length).split(",").map(Number))
   : meeting
     ? undefined
     : TRY_REFINE_CRITERIA;
@@ -51,6 +54,7 @@ for (const a of args.filter((x) => x.startsWith("--set="))) {
 }
 const TOP = RECOMMEND_PARAMS.RESULT_COUNT;
 const venues = createVenueCache();
+const routes = useRoutes ? createRouteCache() : undefined;
 
 // 학습용·검증용 → 기준 → 사례별 점수
 const totals = { train: new Map<string, ModeScore[]>(), holdout: new Map<string, ModeScore[]>() };
@@ -64,7 +68,7 @@ for (const c of loadCases()) {
   }
   const truth = JSON.parse(readFileSync(caseFile(c.id), "utf8")) as GroundTruth;
 
-  let { trace, misses, missed } = await replay(truth, { refineCriteria, venues });
+  let { trace, misses, missed } = await replay(truth, { refineCriteria, venues, routes });
   // 보충한 역의 이동시간에 따라 알고리즘이 또 다른 역을 고를 수 있어 몇 번까지 반복한다
   for (let round = 0; fill && missed.length > 0 && round < 3; round++) {
     const n = truth.members.length;
@@ -87,7 +91,7 @@ for (const c of loadCases()) {
     console.log(
       `\n[${c.id}] 정답표 보충 ${missed.map((x) => x.station.name).join(", ")} (이동시간 ${minutes.length}건)`,
     );
-    ({ trace, misses, missed } = await replay(truth, { refineCriteria, venues }));
+    ({ trace, misses, missed } = await replay(truth, { refineCriteria, venues, routes }));
   }
 
   console.log(
@@ -131,4 +135,6 @@ for (const [group, label] of [
     );
   }
 }
-console.log(`\n장소 검색 ${venues.localCalls}건`);
+console.log(
+  `\n장소 검색 ${venues.localCalls}건${routes ? ` · 경로 조회 ${routes.transitCalls}건` : ""}`,
+);

@@ -61,6 +61,9 @@ const COORD_OVERRIDES: Record<string, { lat: number; lng: number; note: string }
 // 같은 노선에서 이름이 다른 역이 이보다 가까우면 좌표 오류로 의심해 경고한다
 const SUSPICIOUS_SAME_LINE_METERS = 200;
 
+// 원본에 빠진 노선 (신정지선 행에 종점 까치산이 없다). withLine이 있는 역에만 붙인다
+const MISSING_LINES = [{ key: "까치산", withLine: "5호선", line: "2호선" }];
+
 interface Row {
   stationNo: string;
   rawName: string;
@@ -273,18 +276,31 @@ function main() {
   }
 
   const stations: Station[] = [];
+  const appliedMissing = new Set<(typeof MISSING_LINES)[number]>();
   for (const [key, clusters] of byKey) {
     for (const cl of clusters) {
       // id는 묶인 행 중 (노선번호-역번호)가 가장 작은 것으로 정해서 재실행해도 바뀌지 않게 한다
       const ids = cl.map((r) => `${r.lineNo}-${r.stationNo}`).sort();
+      const lines = new Set(cl.map((r) => normalizeLine(r.lineName, key)));
+      for (const m of MISSING_LINES) {
+        if (m.key !== key || !lines.has(m.withLine) || lines.has(m.line)) continue;
+        appliedMissing.add(m);
+        lines.add(m.line);
+      }
       stations.push({
         id: ids[0],
         name: DISPLAY_NAME_OVERRIDES[key] ?? `${key}역`,
-        lines: [...new Set(cl.map((r) => normalizeLine(r.lineName, key)))].sort(),
+        lines: [...lines].sort(),
         lat: round6(cl.reduce((s, r) => s + r.lat, 0) / cl.length),
         lng: round6(cl.reduce((s, r) => s + r.lng, 0) / cl.length),
       });
     }
+  }
+  for (const m of MISSING_LINES) {
+    if (!appliedMissing.has(m))
+      console.warn(
+        `[경고] 노선 보충 대상 ${m.key}역(${m.withLine})이 없거나 이미 ${m.line}이 있습니다. 원본이 고쳐졌으면 MISSING_LINES에서 빼세요.`,
+      );
   }
   stations.sort((a, b) => a.name.localeCompare(b.name, "ko") || a.id.localeCompare(b.id));
 

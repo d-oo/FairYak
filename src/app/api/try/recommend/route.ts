@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasExhibitionAccess } from "@/utils/exhibition";
 import { KakaoQuotaExceededError } from "@/utils/kakao/errors";
-import { fetchTransitMinutes } from "@/utils/kakao/transit";
+import { fetchTransitMinutes, fetchTransitRoutes } from "@/utils/kakao/transit";
 import {
   RECOMMEND_PARAMS,
   SCORE_MODES,
@@ -73,17 +73,22 @@ export async function POST(req: NextRequest) {
     let transitProvider: "kakao" | "tmap" = "kakao";
     if (!forceTmap && Date.now() >= kakaoTransitExhaustedUntil) {
       let transitQuotaHit = false;
+      // 이동시간·경로 조회는 같은 카카오 대중교통 쿼터를 쓴다
+      const watchQuota =
+        <A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>
+        async (...args: A): Promise<R> => {
+          try {
+            return await fn(...args);
+          } catch (e) {
+            if (e instanceof KakaoQuotaExceededError) transitQuotaHit = true;
+            throw e;
+          }
+        };
       try {
         ({ trace } = await recommendStations(points, {
           refineCriteria: TRY_REFINE_CRITERIA,
-          fetchMinutes: async (start, end) => {
-            try {
-              return await fetchTransitMinutes(start, end);
-            } catch (e) {
-              if (e instanceof KakaoQuotaExceededError) transitQuotaHit = true;
-              throw e;
-            }
-          },
+          fetchMinutes: watchQuota(fetchTransitMinutes),
+          fetchRoutes: watchQuota(fetchTransitRoutes),
         }));
       } catch (e) {
         if (!transitQuotaHit) throw e;
@@ -98,9 +103,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "closed" }, { status: 429 });
       }
       transitProvider = "tmap";
+      // TMAP 요약정보 API는 정차역을 주지 않아 경로 기반 추정 없이 계산한다
       ({ trace } = await recommendStations(points, {
         refineCriteria: TRY_REFINE_CRITERIA,
         fetchMinutes: fetchTmapTransitMinutes,
+        fetchRoutes: null,
       }));
     }
 

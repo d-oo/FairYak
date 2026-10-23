@@ -143,6 +143,50 @@
       "label": "4명 (김포공항·잠실·노원·사당)",
       "holdout": true,
       "members": [{ "station": "김포공항역" }, { "station": "잠실역" }, { "station": "노원역" }, { "station": "사당역" }]
+    },
+    {
+      "id": "line1-branches",
+      "label": "1호선 지선 (역곡 경인·군포 경부·창동)",
+      "members": [{ "station": "역곡역" }, { "station": "군포역" }, { "station": "창동역" }]
+    },
+    {
+      "id": "line5-branches",
+      "label": "5호선 지선 (마천·하남풍산·공덕)",
+      "members": [{ "station": "마천역" }, { "station": "하남풍산역" }, { "station": "공덕역" }]
+    },
+    {
+      "id": "off-wirye-pangyo-seongbuk",
+      "label": "역에서 먼 3명 (위례·판교 제2테크노밸리·성북동)",
+      "members": [
+        { "label": "위례 중앙 (거여역 1.5km)", "lat": 37.48, "lng": 127.145 },
+        { "label": "판교 제2테크노밸리 (판교역 2.5km)", "lat": 37.415, "lng": 127.098 },
+        { "label": "성북동 (한성대입구역 1.1km)", "lat": 37.5935, "lng": 126.995 }
+      ]
+    },
+    {
+      "id": "off-umyeon-siksa-gamil",
+      "label": "역에서 먼 3명 (우면동·일산 식사동·하남 감일)",
+      "members": [
+        { "label": "우면동 (양재시민의숲역 1.4km)", "lat": 37.47, "lng": 127.023 },
+        { "label": "일산 식사동 (풍산역 2.1km)", "lat": 37.675, "lng": 126.81 },
+        { "label": "하남 감일 (중앙보훈병원역 2.2km)", "lat": 37.513, "lng": 127.164 }
+      ]
+    },
+    {
+      "id": "holdout-branch-mix",
+      "label": "지선 3명 (양천구청 신정지선·용답 성수지선·부천 경인)",
+      "holdout": true,
+      "members": [{ "station": "양천구청역" }, { "station": "용답역" }, { "station": "부천역" }]
+    },
+    {
+      "id": "holdout-off-gwanggyo-baegot",
+      "label": "역에서 먼 2명 + 잠실 (광교 호수공원·시흥 배곧)",
+      "holdout": true,
+      "members": [
+        { "label": "광교 호수공원 (광교중앙역 1.2km)", "lat": 37.283, "lng": 127.065 },
+        { "label": "시흥 배곧 (달월역 1.5km)", "lat": 37.375, "lng": 126.73 },
+        { "station": "잠실역" }
+      ]
     }
   ]
 }

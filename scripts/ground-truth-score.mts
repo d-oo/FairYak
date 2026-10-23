@@ -15,7 +15,12 @@ import {
   type CandidateTrace,
   type Criterion,
 } from "@/utils/recommend";
-import { stationById, type createVenueCache, type GroundTruth } from "./ground-truth-shared.mts";
+import {
+  stationById,
+  type createRouteCache,
+  type createVenueCache,
+  type GroundTruth,
+} from "./ground-truth-shared.mts";
 
 const EPS = 1e-9;
 const pointKey = (p: LatLng) => `${p.lat},${p.lng}`;
@@ -25,6 +30,8 @@ export async function replay(
   options: {
     refineCriteria?: Criterion[];
     venues: ReturnType<typeof createVenueCache>;
+    // 넘기면 경로 기반 추정을 쓴다 (경로는 정답표에 없어 실제로 조회한다). 없으면 경로 없이 채점한다
+    routes?: ReturnType<typeof createRouteCache>;
   },
 ) {
   // (출발지, 역 좌표) → 이동시간
@@ -47,6 +54,9 @@ export async function replay(
     },
     refineCriteria: options.refineCriteria,
     countVenues: (s) => options.venues.countVenues(s),
+    fetchRoutes: options.routes
+      ? (start, end) => options.routes!.fetchRoutes(start, end)
+      : null,
   });
   const missed = trace.candidates.filter(
     (c) => c.queriedIn !== null && !truth.stations.some((s) => s.id === c.station.id),

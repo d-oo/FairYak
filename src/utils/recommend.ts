@@ -3,17 +3,19 @@
 //
 // [1단계: 직선거리 기준]
 //  1. 전국 역(공공데이터) 각각에 대해 "가장 먼 멤버까지의 직선거리"를 구해 짧은 순으로 PREFILTER_COUNT개
-//  2. 직선거리가 최선값과 비슷한(STRAIGHT_TOLERANCE_METERS 이내) 역들은 멤버 출발지 근처 노선과 직결되는 멤버 수,
-//     환승 노선 수, 상권이 큰 순으로 앞세우고,
+//  2. 직선거리가 최선값과 비슷한(STRAIGHT_TOLERANCE_METERS 이내) 역들은 환승 노선 수, 상권이 큰 순으로 앞세우고,
 //     반경 VENUE_RADIUS_METERS 안 음식점+카페 수가 MIN_VENUES 미만인 역은 후보에서 뺀다
 //     (밥 먹고 차 마실 곳이 없으면 모임 장소로 쓸 수 없으므로 순위에 올리지 않고 이동시간도 조회하지 않는다)
 //  3. 남은 역 중 앞에서부터 TRANSIT_CANDIDATES개 역 × 멤버 전원의 대중교통 이동시간 조회
 // [2단계: 이동시간 추정으로 추가 후보]
 //  4. 1단계 결과로 멤버마다 "직선 1km당 몇 분"인지 추정한다. 같은 거리라도 역에서 먼 동네에 사는 멤버는
 //     더 오래 걸리므로, 직선거리 중앙만 보면 후보가 빠른 멤버 쪽으로 치우친다.
-//  5. 멤버별 추정 이동시간 = 속도 × 직선거리(멤버 근처 노선이 그 역을 지나면 DIRECT_LINE_FACTOR배)
-//     + 근처에서 조회한 역들의 실제 오차(실제 − 속도 모델)의 거리 가중 평균.
-//     같은 노선 방향이면 빠르고 노선을 가로지르면 느린 것처럼, 속도 하나로 못 잡는 방향성을 직결 여부와 근처 역의 실제값으로 메운다.
+//  5. 멤버별 추정 이동시간 = 속도 × 직선거리 + 근처에서 조회한 역들의 실제 오차(실제 − 속도 모델)의 거리 가중 평균.
+//     단, 멤버 쌍의 대중교통 경로(1단계 상권 확인과 동시에 쌍마다 1건 조회)가 지나는 역은 경로상 위치로 추정한 시간을 쓴다
+//     (A에서 t분 지점이면 A는 t분, B는 전체 − t분. 1단계 실측으로 멤버별 편향을 보정한다. ROUTE_COUNT 설명 참고).
+//     같은 노선 방향이면 빠르고 노선을 가로지르면 느린 것처럼 직선거리로 못 잡는 노선망 구조를 경로와 근처 역의 실제값으로 메운다.
+//     (예전에는 "멤버 근처 노선이 그 역을 지나면 0.9배" 같은 직결 판정도 썼지만, 경로 기반 추정을 넣은 뒤로는
+//      정답표에서 빼는 편이 같거나 나았다)
 //  6. 아직 조회하지 않은 전국 역을 추정 이동시간으로 매긴 "추정 점수" 순으로 세워, 상권 기준을 통과한 역을
 //     2단계 자리(기본 REFINE_CANDIDATES개)만큼 추가로 조회한다. 체험 모드는 자리를 기준(SCORE_MODES)별로 나눠 쓴다
 //     (후보 목록 하나로 세 기준을 모두 매기므로, 기준마다 유리한 역이 모두 조회 대상에 들어가게)
@@ -26,20 +28,22 @@
 import { distanceMeters, type LatLng } from "@/utils/geo";
 import { mapWithConcurrency } from "@/utils/concurrency";
 import { countCategoryPlaces } from "@/utils/kakao/local";
-import { fetchTransitMinutes } from "@/utils/kakao/transit";
+import {
+  fetchTransitMinutes,
+  fetchTransitRoutes,
+  type TransitRoute,
+} from "@/utils/kakao/transit";
 import stationsData from "@/data/stations.json";
 
 export const RECOMMEND_PARAMS = {
   PREFILTER_COUNT: 16,
   TRANSIT_CANDIDATES: 8,
   RESULT_COUNT: 5,
-  // 직선거리 1km 안팎 차이는 실제 이동시간을 가르지 못하므로, 이 범위 안에서는 허브 역을 우선한다
-  // (직선거리 순으로만 자르면 왕십리·신당 같은 환승 허브가 이동시간 조회 전에 탈락했음)
-  STRAIGHT_TOLERANCE_METERS: 1500,
-  // 허브 우선 그룹 안에서는 노선 수보다 "멤버 출발지 근처 노선과 직결되는지"를 먼저 본다
-  // (노선이 많은 환승역이 멤버들의 노선과 안 겹치면, 노선 하나뿐이지만 직결되는 역보다 느리다).
-  // 출발지에서 이 반경 안의 역 노선을 그 멤버의 노선으로 본다. 반경 안에 역이 없는 멤버는 세지 않는다
-  MEMBER_STATION_RADIUS_METERS: 1000,
+  // 직선거리 1~2km 안팎 차이는 실제 이동시간을 가르지 못하므로, 이 범위 안에서는 환승 노선이 많은 역을 우선한다
+  // (직선거리 순으로만 자르면 왕십리·신당 같은 환승 허브가 이동시간 조회 전에 탈락했음).
+  // 경로 기반 추정과 함께 정답표로 비교했을 때 1750~3000m가 고르게 좋았고 1500m 이하는 나빴다.
+  // (허브 그룹 안에서 "멤버 근처 노선과 직결되는 멤버 수"를 먼저 보는 규칙도 있었지만, 빼고 범위를 넓히는 편이 나았다)
+  STRAIGHT_TOLERANCE_METERS: 2000,
   VENUE_RADIUS_METERS: 500,
   MIN_VENUES: 30,
   TRANSIT_CONCURRENCY: 5,
@@ -53,14 +57,23 @@ export const RECOMMEND_PARAMS = {
   RESIDUAL_RANGE_METERS: 1500,
   // 오차 보정의 기본 가중치. 근처에 조회한 역이 없을수록 보정이 0(속도 모델 그대로)에 가까워진다
   RESIDUAL_PRIOR_WEIGHT: 0.3,
-  // 2단계 추정에서 멤버 출발지 근처 노선이 그 역을 지나면(갈아타지 않고 바로 감) 속도 모델 이동시간에 곱하는 계수.
-  // 1이면 반영하지 않는다. 근처에 조회한 역이 없어 오차 보정이 안 닿는 곳에서 직결 여부를 구분하려는 것
-  // (예: 일산 주엽역 → 3호선 직결 신사역 54분 vs 환승 신논현역 69분). 추정에만 쓰고 순위는 실제 이동시간으로 매긴다.
-  // 0.8~1 중 정답표 학습용·검증용 사례에서 세 기준 모두 가장 고르게 좋았던 값
-  DIRECT_LINE_FACTOR: 0.9,
   // 실제 모임 추천 점수 (1 − α) × 최대 + α × 평균 의 α. 1/3은 예전 공식 "최대 + 0.5 × 평균"과 순위가 같다.
   // 체험 모드는 거듭제곱 평균(SCORE_MODES)으로 바꿨고, 실제 모임은 나중에 체험 모드에 맞춘다 (docs/todos.md)
   SCORE_AVG_RATIO: 1 / 3,
+  // 경로 기반 추정: 멤버 쌍마다 A → B 경로를 조회해, 경로가 지나는 역은 "A에서 t분 지점이면 A는 t분,
+  // B는 전체 − t분"으로 이동시간을 추정해 2단계의 속도 모델 추정 대신 쓴다. 속도 모델은 노선망을 몰라서
+  // 멤버들이 바로 가는 환승 허브(삼각지·혜화·사당 등)를 못 찾았는데, 경로가 그런 역을 지나간다.
+  // 쌍마다 빠른 순으로 이만큼의 경로를 본다 (느린 경로의 역까지 넣으면 실제로 안 가는 길로 낙관적으로 추정돼 나빠졌음)
+  ROUTE_COUNT: 1,
+  // 경로를 조회할 멤버 쌍 수 상한 (6명 = 15쌍). 넘으면 서로 먼 쌍부터 쓴다
+  ROUTE_MAX_PAIRS: 15,
+  // 정차역 이름(카카오 응답에 좌표가 없음)과 같은 이름의 역 중, 그 구간 경로에서 이보다 가까운 역만 같은 역으로 본다
+  ROUTE_STOP_MATCH_METERS: 1000,
+  // 1이면 1단계에서 조회한 역 중 경로가 지나는 역의 "실제 − 경로 추정" 중앙값을 멤버마다 경로 추정에 더한다
+  // (경로상 위치로 나눈 시간은 갈아타기·기다리는 시간이 빠져 실제보다 평균 3분쯤 짧게 나왔다)
+  ROUTE_BIAS_CORRECTION: 1,
+  // (2명이면 1·2단계 없이 A → B 최단 경로의 중간 역만 조회하는 방식도 정답표로 비교했지만, 급행·광역 구간이 섞인
+  //  경로에서 경로상 위치로 나눈 시간이 크게 틀려 나빴다)
 };
 
 const P = RECOMMEND_PARAMS;
@@ -131,8 +144,6 @@ export interface CandidateTrace {
   maxMeters: number;
   // 1단계에서 직선거리가 최선값과 비슷해서 허브 우선 정렬 대상이었는지
   nearBest: boolean;
-  // 출발지 근처 노선이 이 역을 지나는 멤버 수
-  linkedMembers: number;
   // 멤버별 속도와 근처 조회 역의 오차로 추정한 최대 이동시간(분). 속도를 추정하지 못했으면 null
   estMaxMinutes: number | null;
   // 2단계에서 어느 기준(Criterion.label)의 추정 점수로 골랐는지. 2단계에서 조회하지 않았으면 null
@@ -153,14 +164,14 @@ export interface CandidateTrace {
   rank: number | null;
   // 2단계 없이 1단계에서 조회한 역만으로 매긴 순위 (효과 비교용)
   round1Rank: number | null;
+  // 멤버 쌍 경로상 위치로 추정한 멤버별 이동시간(분, 편향 보정 전). 그 멤버가 낀 경로가 이 역을 지나지 않으면 null
+  routeMinutes: (number | null)[] | null;
 }
 
 export interface RecommendTrace {
   // 1단계 후보(정렬 순서대로) 다음에 2단계에서 새로 추가된 후보
   candidates: CandidateTrace[];
   bestMeters: number;
-  // 멤버별 출발지 근처(MEMBER_STATION_RADIUS_METERS 이내) 역의 노선. 근처에 역이 없으면 빈 배열
-  memberLines: string[][];
   // 멤버별 추정 속도(직선 1km당 분). 추정하지 못하면 null
   memberMinutesPerKm: (number | null)[];
   calls: { local: number; transit: number };
@@ -192,14 +203,12 @@ function newTrace(
   source: 1 | 2,
   maxMeters: number,
   venues: number | null,
-  linkedMembers: number,
 ): CandidateTrace {
   return {
     station,
     source,
     maxMeters,
     nearBest: false,
-    linkedMembers,
     estMaxMinutes: null,
     refinedBy: null,
     venues,
@@ -211,7 +220,62 @@ function newTrace(
     score: null,
     rank: null,
     round1Rank: null,
+    routeMinutes: null,
   };
+}
+
+// 역 이름 키. 괄호 안 이름으로도 찾을 수 있게 둘 다 돌려준다 ("총신대입구(이수)역" → 총신대입구, 이수)
+function nameKeys(name: string): string[] {
+  const s = name.replace(/\s+/g, "");
+  const inner = [...s.matchAll(/\((.*?)\)/g)].map((m) => m[1]);
+  return [s.replace(/\(.*?\)/g, ""), ...inner]
+    .map((k) => (k.length > 1 && k.endsWith("역") ? k.slice(0, -1) : k))
+    .filter((k) => k.length > 0);
+}
+
+let stationsByKey: Map<string, Station[]> | null = null;
+
+// 경로 정차역 이름 → 역. 같은 이름의 역 중 그 구간 경로에서 ROUTE_STOP_MATCH_METERS 안의 가장 가까운 역
+function matchStop(name: string, path: LatLng[]): Station | null {
+  if (!stationsByKey) {
+    stationsByKey = new Map();
+    for (const s of stations)
+      for (const k of nameKeys(s.name)) stationsByKey.set(k, [...(stationsByKey.get(k) ?? []), s]);
+  }
+  const named = [...new Set(nameKeys(name).flatMap((k) => stationsByKey!.get(k) ?? []))];
+  if (path.length === 0) return named.length === 1 ? named[0] : null;
+  let best: Station | null = null;
+  let bestMeters = P.ROUTE_STOP_MATCH_METERS;
+  for (const s of named) {
+    const d = Math.min(...path.map((p) => distanceMeters(s, p)));
+    if (d <= bestMeters) {
+      best = s;
+      bestMeters = d;
+    }
+  }
+  return best;
+}
+
+// 경로가 지나는 지하철역과 출발부터 그 역까지의 시간(분). 구간 시간은 정차역 사이 직선거리 비율로 나눈다
+function routeStops(route: TransitRoute): { station: Station; minutes: number }[] {
+  const out: { station: Station; minutes: number }[] = [];
+  let elapsed = 0;
+  for (const step of route.steps) {
+    if (step.type === "SUBWAY") {
+      const matched = step.stopNames
+        .map((n) => matchStop(n, step.path))
+        .filter((s): s is Station => s !== null);
+      const cum = [0];
+      for (let i = 1; i < matched.length; i++)
+        cum.push(cum[i - 1] + distanceMeters(matched[i - 1], matched[i]));
+      const total = cum[cum.length - 1];
+      matched.forEach((station, i) =>
+        out.push({ station, minutes: elapsed + (total > 0 ? (step.minutes * cum[i]) / total : 0) }),
+      );
+    }
+    elapsed += step.minutes;
+  }
+  return out;
 }
 
 // 점수가 낮은 순(같으면 상권이 큰 순)으로 정렬
@@ -246,6 +310,9 @@ export interface RecommendOptions {
   refineCriteria?: Criterion[];
   // 상권 수 조회 함수 (기본: 카카오 장소 검색). 정답표 평가가 한 실행 안에서 메모리로 재사용하려고 바꿔 끼운다
   countVenues?: (station: Station) => Promise<number | null>;
+  // 경로 조회 함수 (기본: 카카오). null이면 경로 기반 추정 없이 속도 모델만 쓴다
+  // (체험 모드 TMAP 폴백은 정차역 정보가 없고, 정답표 평가는 경로를 저장할 수 없어 기본으로 끈다)
+  fetchRoutes?: ((start: LatLng, end: LatLng) => Promise<TransitRoute[]>) | null;
 }
 
 // 쿼터 초과 시 KakaoQuotaExceededError를 던진다
@@ -255,19 +322,11 @@ export async function recommendStations(
     fetchMinutes = fetchTransitMinutes,
     refineCriteria = Array(P.REFINE_CANDIDATES).fill(meetingCriterion()),
     countVenues: venuesOf = countVenues,
+    fetchRoutes = fetchTransitRoutes,
   }: RecommendOptions = {},
 ): Promise<RecommendResult> {
   const maxMetersOf = (s: Station) =>
     Math.max(...members.map((m) => distanceMeters(s, m)));
-  const memberLines = members.map((m) => [
-    ...new Set(
-      stations
-        .filter((s) => distanceMeters(s, m) <= P.MEMBER_STATION_RADIUS_METERS)
-        .flatMap((s) => s.lines),
-    ),
-  ]);
-  const linkedMembersOf = (s: Station) =>
-    memberLines.filter((lines) => lines.some((l) => s.lines.includes(l))).length;
   let localCalls = 0;
   let transitCalls = 0;
 
@@ -295,6 +354,38 @@ export async function recommendStations(
     });
   }
 
+  // 멤버 쌍 경로상 위치로 추정한 역별·멤버별 이동시간. 1단계 상권 확인과 동시에 조회한다.
+  // 쌍이 ROUTE_MAX_PAIRS보다 많으면 서로 먼 쌍부터 쓴다 (먼 쌍의 경로가 모두의 중간 지역을 지난다)
+  async function fetchRouteMinutes(): Promise<Map<string, (number | null)[]>> {
+    const byStation = new Map<string, (number | null)[]>();
+    if (!fetchRoutes) return byStation;
+    const pairs = members
+      .flatMap((_, i) => members.slice(i + 1).map((__, k) => [i, i + 1 + k]))
+      .sort(([a, b], [c, d]) => distanceMeters(members[c], members[d]) - distanceMeters(members[a], members[b]))
+      .slice(0, P.ROUTE_MAX_PAIRS);
+    transitCalls += pairs.length;
+    const routesByPair = await mapWithConcurrency(pairs, P.TRANSIT_CONCURRENCY, ([i, j]) =>
+      fetchRoutes(members[i], members[j]),
+    );
+    pairs.forEach(([i, j], pi) => {
+      const fastest = [...routesByPair[pi]]
+        .sort((a, b) => a.minutes - b.minutes)
+        .slice(0, P.ROUTE_COUNT);
+      for (const route of fastest) {
+        for (const { station, minutes } of routeStops(route)) {
+          const times = byStation.get(station.id) ?? members.map(() => null);
+          times[i] = Math.min(times[i] ?? Infinity, minutes);
+          times[j] = Math.min(times[j] ?? Infinity, route.minutes - minutes);
+          byStation.set(station.id, times);
+        }
+      }
+    });
+    return byStation;
+  }
+  const routeMinutesPromise = fetchRouteMinutes();
+  // 상권 확인을 기다리는 동안 실패해도 처리되지 않은 거부로 프로세스가 죽지 않게 한다 (아래에서 await하면 다시 던진다)
+  routeMinutesPromise.catch(() => {});
+
   // ---- 1단계: 직선거리 기준 ----
   const nearest = stations
     .map((station) => ({ station, maxMeters: maxMetersOf(station) }))
@@ -307,13 +398,7 @@ export async function recommendStations(
   const bestMeters = nearest[0].maxMeters;
   const candidates: CandidateTrace[] = nearest
     .map((n, i) => {
-      const c = newTrace(
-        n.station,
-        1,
-        n.maxMeters,
-        venueCounts[i],
-        linkedMembersOf(n.station),
-      );
+      const c = newTrace(n.station, 1, n.maxMeters, venueCounts[i]);
       c.nearBest = n.maxMeters <= bestMeters + P.STRAIGHT_TOLERANCE_METERS;
       return c;
     })
@@ -323,7 +408,6 @@ export async function recommendStations(
       if (a.nearBest !== b.nearBest) return a.nearBest ? -1 : 1;
       if (!a.nearBest) return a.maxMeters - b.maxMeters;
       return (
-        b.linkedMembers - a.linkedMembers ||
         b.station.lines.length - a.station.lines.length ||
         (b.venues ?? 0) - (a.venues ?? 0)
       );
@@ -331,6 +415,9 @@ export async function recommendStations(
   const round1 = candidates
     .filter((c) => !c.venueLow)
     .slice(0, P.TRANSIT_CANDIDATES);
+  // 경로 조회는 상권 확인과 겹치게 돌리고, 끝난 뒤 이동시간 조회를 시작한다
+  // (대중교통 요청을 한꺼번에 많이 보내면 카카오 순간 요청 제한에 걸리는데, 쿼터 초과와 같은 코드로 온다)
+  const routeMinutes = await routeMinutesPromise;
   await queryTransit(round1, 1);
 
   // 효과 비교용: 1단계만으로 매긴 순위
@@ -355,8 +442,7 @@ export async function recommendStations(
     const fallback = median(known);
     const speeds = memberMinutesPerKm.map((v) => v ?? fallback);
     const modelMinutes = (s: Station, mi: number) =>
-      ((speeds[mi] * distanceMeters(s, members[mi])) / 1000) *
-      (memberLines[mi].some((l) => s.lines.includes(l)) ? P.DIRECT_LINE_FACTOR : 1);
+      (speeds[mi] * distanceMeters(s, members[mi])) / 1000;
     // 1단계에서 조회한 역마다 멤버별 "실제 − 속도 모델" 오차 (경로 없음은 null)
     const residuals = round1.map((c) => ({
       station: c.station,
@@ -365,9 +451,24 @@ export async function recommendStations(
         return t === null || t === undefined ? null : t - modelMinutes(c.station, mi);
       }),
     }));
-    // 멤버별 추정 이동시간 = 속도 모델 + 근처 조회 역 오차의 거리 가중 평균
+    // 멤버별 추정 이동시간 = 속도 모델 + 근처 조회 역 오차의 거리 가중 평균.
+    // 그 멤버가 낀 쌍의 경로가 이 역을 지나면 경로상 위치로 추정한 값(+ 편향 보정)을 대신 쓴다
+    candidates.forEach((c) => (c.routeMinutes = routeMinutes.get(c.station.id) ?? null));
+    const routeBias = members.map((_, mi) => {
+      if (!P.ROUTE_BIAS_CORRECTION) return 0;
+      const diffs = round1.flatMap((c) => {
+        const actual = c.transitMinutes?.[mi];
+        const onRoute = c.routeMinutes?.[mi];
+        return actual === null || actual === undefined || onRoute === null || onRoute === undefined
+          ? []
+          : [actual - onRoute];
+      });
+      return diffs.length > 0 ? median(diffs) : 0;
+    });
     const estimateMinutes = (s: Station) =>
       members.map((_, mi) => {
+        const onRoute = routeMinutes.get(s.id)?.[mi];
+        if (onRoute !== null && onRoute !== undefined) return Math.max(1, onRoute + routeBias[mi]);
         let weighted = 0;
         let weightSum = P.RESIDUAL_PRIOR_WEIGHT;
         for (const r of residuals) {
@@ -411,14 +512,9 @@ export async function recommendStations(
       venuesOf(p.station),
     );
     fresh.forEach((p, i) => {
-      const c = newTrace(
-        p.station,
-        2,
-        maxMetersOf(p.station),
-        freshVenues[i],
-        linkedMembersOf(p.station),
-      );
+      const c = newTrace(p.station, 2, maxMetersOf(p.station), freshVenues[i]);
       c.estMaxMinutes = Math.max(...p.est);
+      c.routeMinutes = routeMinutes.get(p.station.id) ?? null;
       candidates.push(c);
       byId.set(p.station.id, c);
     });
@@ -453,7 +549,6 @@ export async function recommendStations(
     trace: {
       candidates,
       bestMeters,
-      memberLines,
       memberMinutesPerKm,
       calls: { local: localCalls, transit: transitCalls },
     },

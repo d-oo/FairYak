@@ -10,15 +10,18 @@
 // 검증이 끝나면 폴더째 삭제한다. 절대 커밋하지 않는다.
 
 import { readFileSync } from "node:fs";
-import { distanceMeters } from "@/utils/geo";
+import { distanceMeters, type LatLng } from "@/utils/geo";
 import { mapWithConcurrency } from "@/utils/concurrency";
+import { fetchTransitRoutes, type TransitRoute } from "@/utils/kakao/transit";
 import {
   RECOMMEND_PARAMS,
   SCORE_MODES,
+  SCORE_MODE_POWERS,
   countVenues,
   powerMeanCriterion,
   stations,
   type Criterion,
+  type ScoreMode,
   type Station,
 } from "@/utils/recommend";
 
@@ -86,6 +89,21 @@ export function loadCases(): Case[] {
   }));
 }
 
+// 2단계 자리별 거듭제곱 평균의 p → 기준. 알고리즘은 같은 기준 객체끼리 자리를 묶어 상권 확인 범위를 정하므로,
+// p가 같으면 같은 객체를 쓴다 (체험 모드 기준과 p가 같으면 그 객체를 그대로 써서 [5, 12, 2, 5]가 체험 모드 배분과 같다)
+export function criteriaFromPowers(powers: number[]): Criterion[] {
+  const byPower = new Map<number, Criterion>(
+    (Object.entries(SCORE_MODE_POWERS) as [ScoreMode, number][]).map(([mode, p]) => [
+      p,
+      SCORE_MODES[mode],
+    ]),
+  );
+  return powers.map((p) => {
+    if (!byPower.has(p)) byPower.set(p, powerMeanCriterion(p));
+    return byPower.get(p)!;
+  });
+}
+
 export function stationById(id: string): Station {
   const s = stations.find((x) => x.id === id);
   if (!s) throw new Error(`역 id ${id}가 stations.json에 없어요 (역 목록이 바뀌었나요?)`);
@@ -117,6 +135,28 @@ export function createVenueCache() {
 }
 
 type VenueCache = ReturnType<typeof createVenueCache>;
+
+// 경로 기반 추정용 카카오 경로 조회. 카카오 정책상 경로는 저장할 수 없어 정답표에 넣지 않고,
+// 한 실행 안에서만 메모리로 재사용한다 (실행마다 멤버 쌍 수만큼 대중교통 쿼터를 쓴다)
+export function createRouteCache() {
+  const cache = new Map<string, Promise<TransitRoute[]>>();
+  let calls = 0;
+  return {
+    fetchRoutes(start: LatLng, end: LatLng): Promise<TransitRoute[]> {
+      const key = `${start.lat},${start.lng}|${end.lat},${end.lng}`;
+      let hit = cache.get(key);
+      if (!hit) {
+        calls++;
+        hit = fetchTransitRoutes(start, end);
+        cache.set(key, hit);
+      }
+      return hit;
+    },
+    get transitCalls() {
+      return calls;
+    },
+  };
+}
 
 // 직선거리(km)를 이동시간 대신 넣은 기준 점수가 낮은 순
 export function orderedStations(members: CaseMember[], criterion: Criterion): Station[] {

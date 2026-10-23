@@ -450,15 +450,6 @@ export default function RecommendDebug() {
                 .join("  ") || "갈 수 있는 역 없음"}
             </p>
             <p className="text-xs text-gray-500">
-              멤버별 근처 노선(반경 {result.params.MEMBER_STATION_RADIUS_METERS / 1000}km):{" "}
-              {result.trace.memberLines
-                .map(
-                  (lines, i) =>
-                    `${members[i] ? memberLabel(members[i], i) : `M${i + 1}`} ${lines.length > 0 ? lines.join(", ") : "없음"}`,
-                )
-                .join(" · ")}
-            </p>
-            <p className="text-xs text-gray-500">
               멤버별 추정 속도(직선 1km당):{" "}
               {result.trace.memberMinutesPerKm
                 .map(
@@ -466,7 +457,7 @@ export default function RecommendDebug() {
                     `${members[i] ? memberLabel(members[i], i) : `M${i + 1}`} ${v === null ? "추정 불가" : `${v.toFixed(2)}분`}`,
                 )
                 .join(" · ")}{" "}
-              · 2단계: 속도 모델(직결 ×{result.params.DIRECT_LINE_FACTOR}) + 근처 조회 역 오차 보정(반경{" "}
+              · 2단계: 멤버 쌍 경로상 위치(경로가 지나는 역) 또는 속도 모델 + 근처 조회 역 오차 보정(반경{" "}
               {result.params.RESIDUAL_RANGE_METERS / 1000}km)으로 추정한 점수 상위{" "}
               {result.params.REFINE_CANDIDATES}개 추가 조회
             </p>
@@ -493,7 +484,7 @@ export default function RecommendDebug() {
                   <th className="px-2 py-2 text-left">노선</th>
                   <th className="px-2 py-2 text-right">가장 먼 멤버까지</th>
                   <th className="px-2 py-2 text-center">허브 우선</th>
-                  <th className="px-2 py-2 text-right">직결 멤버</th>
+                  <th className="px-2 py-2 text-left">경로 추정 (보정 전)</th>
                   <th className="px-2 py-2 text-right">추정 최대</th>
                   <th className="px-2 py-2 text-right">음식점+카페</th>
                   <th className="px-2 py-2 text-center">조회</th>
@@ -527,8 +518,10 @@ export default function RecommendDebug() {
                         {(c.maxMeters / 1000).toFixed(1)}km
                       </td>
                       <td className="px-2 py-1.5 text-center">{c.nearBest ? "✓" : ""}</td>
-                      <td className="px-2 py-1.5 text-right">
-                        {c.linkedMembers}/{result.trace.memberLines.length}
+                      <td className="px-2 py-1.5 text-gray-600">
+                        {c.routeMinutes
+                          ? c.routeMinutes.map((t) => (t === null ? "-" : Math.round(t))).join(" / ")
+                          : "-"}
                       </td>
                       <td className="px-2 py-1.5 text-right">
                         {c.estMaxMinutes === null ? "-" : `${Math.round(c.estMaxMinutes)}분`}

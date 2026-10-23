@@ -6,6 +6,7 @@
 //
 // 조합 파일 형식: { "configs": [{ "name": "...", "set": { "RECOMMEND_PARAMS 키": 값 }, "refine": [p, ...] }] }
 //  - set이 없으면 지금 값 그대로, refine(2단계 자리별 거듭제곱 평균의 p)이 없으면 체험 모드 배분(TRY_REFINE_CRITERIA)
+//  - "route": true면 경로 기반 추정을 켠다(실서비스 기본값). 경로는 저장할 수 없어 실제로 조회한다(실행 전체에서 멤버 쌍마다 한 번)
 // 조합마다 RECOMMEND_PARAMS를 원래 값으로 되돌린 뒤 set을 적용한다.
 // 이동시간 쿼터는 쓰지 않는다 (정답표 밖의 역은 갈 수 없음으로 처리하고 건수만 보여준다. 보충은 gt:eval --fill).
 // 상권 수는 실행 전체에서 역마다 한 번만 조회한다.
@@ -18,10 +19,11 @@ import {
   RECOMMEND_PARAMS,
   SCORE_MODES,
   TRY_REFINE_CRITERIA,
-  powerMeanCriterion,
 } from "@/utils/recommend";
 import {
   caseFile,
+  criteriaFromPowers,
+  createRouteCache,
   createVenueCache,
   loadCases,
   type GroundTruth,
@@ -40,6 +42,7 @@ interface Config {
   name: string;
   set?: Record<string, number>;
   refine?: number[];
+  route?: boolean;
 }
 const { configs } = JSON.parse(readFileSync(configPath, "utf8")) as { configs: Config[] };
 
@@ -56,6 +59,7 @@ console.log(
 
 const defaults = { ...RECOMMEND_PARAMS };
 const venues = createVenueCache();
+const routes = createRouteCache();
 const modes = Object.entries(SCORE_MODES);
 
 const rows: string[][] = [];
@@ -69,8 +73,9 @@ for (const config of configs) {
   let misses = 0;
   for (const { holdout, truth } of truths) {
     const result = await replay(truth, {
-      refineCriteria: config.refine?.map(powerMeanCriterion) ?? TRY_REFINE_CRITERIA,
+      refineCriteria: config.refine ? criteriaFromPowers(config.refine) : TRY_REFINE_CRITERIA,
       venues,
+      routes: config.route ? routes : undefined,
     });
     if (!holdout) transitCalls += result.trace.calls.transit;
     misses += result.misses;
@@ -109,4 +114,4 @@ const line = (r: string[]) => r.map((cell, i) => cell.padEnd(widths[i])).join(""
 console.log("\n기준 칸: 1위 손해 평균(분) · 정답 1위를 찾은 사례 · 적중 평균(/5)");
 console.log(line(header));
 for (const r of rows) console.log(line(r));
-console.log(`\n장소 검색 ${venues.localCalls}건`);
+console.log(`\n장소 검색 ${venues.localCalls}건 · 경로 조회 ${routes.transitCalls}건`);
