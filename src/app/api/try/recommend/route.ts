@@ -7,6 +7,7 @@ import {
   SCORE_MODES,
   STATION_COUNT,
   TRY_REFINE_CRITERIA,
+  findUnreachableMembers,
   rankCandidates,
   recommendStations,
   type RecommendTrace,
@@ -19,6 +20,7 @@ import { reserveTmapCalls } from "@/utils/tmap/usage";
 // 결과(이동시간·상권 수 포함)는 응답으로만 돌려주고 저장하지 않는다.
 // process는 체험 화면의 "추천 과정" 패널용으로, 계산 trace에서 체험객에게 보여줄 값만 추린 것이다.
 // 갈 수 있는 역이 없어 422로 실패해도 왜 실패했는지 보여줄 수 있도록 process는 함께 돌려준다.
+// 이때 unreachable(대중교통 경로가 하나도 없었던 출발지 순번)도 함께 돌려준다.
 // 순위 기준(SCORE_MODES)은 체험객이 화면에서 바꿔 볼 수 있도록 기준마다 순위를 매겨 함께 돌려준다.
 //
 // 이동시간은 카카오(하루 무료 쿼터, 초과 과금 꺼 둠)로 조회하고, 대중교통 쿼터가 바닥나면 TMAP(유료)으로 넘어간다.
@@ -134,7 +136,11 @@ export async function POST(req: NextRequest) {
     const reachable = trace.candidates.filter((c) => c.score !== null);
     if (reachable.length === 0) {
       return NextResponse.json(
-        { error: "no_reachable_station", process: processInfo },
+        {
+          error: "no_reachable_station",
+          process: processInfo,
+          unreachable: findUnreachableMembers(trace),
+        },
         { status: 422 },
       );
     }

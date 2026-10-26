@@ -43,6 +43,7 @@ export const RECOMMEND_PARAMS = {
   // (직선거리 순으로만 자르면 왕십리·신당 같은 환승 허브가 이동시간 조회 전에 탈락했음).
   // 경로 기반 추정과 함께 정답표로 비교했을 때 1750~3000m가 고르게 좋았고 1500m 이하는 나빴다.
   // (허브 그룹 안에서 "멤버 근처 노선과 직결되는 멤버 수"를 먼저 보는 규칙도 있었지만, 빼고 범위를 넓히는 편이 나았다)
+  // (최선 직선거리에 비례하는 범위 max(1~2km, 10~15%)도 시험했지만 지금과 같거나 나빴다)
   STRAIGHT_TOLERANCE_METERS: 2000,
   VENUE_RADIUS_METERS: 500,
   MIN_VENUES: 30,
@@ -53,8 +54,9 @@ export const RECOMMEND_PARAMS = {
   REFINE_CANDIDATES: 4,
   // 상권 부족으로 빠질 역을 감안해, 기준마다 자리 수의 몇 배까지 추정 점수 상위 역의 상권을 확인할지
   REFINE_POOL_FACTOR: 2,
-  // 근처 조회 역의 오차를 얼마나 멀리까지 반영할지. 이 거리에서 가중치가 e^-1(약 0.37)로 줄어든다
-  RESIDUAL_RANGE_METERS: 1500,
+  // 근처 조회 역의 오차를 얼마나 멀리까지 반영할지. 이 거리에서 가중치가 e^-1(약 0.37)로 줄어든다.
+  // 경로 기반 추정과 함께 정답표로 비교했을 때 1.5km보다 2km가 나았고, 3km는 검증용 사례가 나빠졌다
+  RESIDUAL_RANGE_METERS: 2000,
   // 오차 보정의 기본 가중치. 근처에 조회한 역이 없을수록 보정이 0(속도 모델 그대로)에 가까워진다
   RESIDUAL_PRIOR_WEIGHT: 0.3,
   // 실제 모임 추천 점수 (1 − α) × 최대 + α × 평균 의 α. 1/3은 예전 공식 "최대 + 0.5 × 평균"과 순위가 같다.
@@ -296,6 +298,14 @@ export function rankCandidates(
     .map(({ c }) => c);
 }
 
+// 이동시간을 조회한 역 어디에도 대중교통 경로가 없었던 멤버 순번 (서울↔부산처럼 카카오 길찾기가 도시 간
+// 경로를 주지 않는 경우). 갈 수 있는 역이 없어 추천에 실패했을 때 이유로 보여준다. 조회한 역이 없으면 빈 배열
+export function findUnreachableMembers(trace: RecommendTrace): number[] {
+  const queried = trace.candidates.flatMap((c) => (c.transitMinutes ? [c.transitMinutes] : []));
+  if (queried.length === 0) return [];
+  return queried[0].flatMap((_, mi) => (queried.every((t) => t[mi] === null) ? [mi] : []));
+}
+
 // 이동시간 조회 함수. 평소에는 카카오를 부르고, 정답표 평가 스크립트(scripts/ground-truth)는
 // 저장해 둔 이동시간으로 바꿔 끼워 같은 알고리즘을 쿼터 없이 다시 돌린다
 export type TransitMinutesFetcher = (
@@ -427,7 +437,8 @@ export async function recommendStations(
     .forEach((c, i) => (c.round1Rank = i + 1));
 
   // ---- 2단계: 이동시간 추정으로 추가 후보 ----
-  // 출발지가 역 바로 앞이면 거리가 0에 가까워 비율이 튀므로 1km 미만은 1km로 본다
+  // 출발지가 역 바로 앞이면 거리가 0에 가까워 비율이 튀므로 1km 미만은 1km로 본다.
+  // ("1km당 분 + 고정 시간" 모델(공통 기울기 또는 멤버별 기울기)도 정답표로 시험했지만 1단계 8역으로는 적합이 불안정해 나빴다)
   const memberMinutesPerKm = members.map((m, mi) => {
     const ratios = round1.flatMap((c) => {
       const t = c.transitMinutes?.[mi];
@@ -436,11 +447,10 @@ export async function recommendStations(
     });
     return ratios.length > 0 ? median(ratios) : null;
   });
-  const known = memberMinutesPerKm.filter((v): v is number => v !== null);
-  if (known.length > 0) {
-    // 속도를 추정하지 못한 멤버는 다른 멤버들의 중앙값으로 채운다
-    const fallback = median(known);
-    const speeds = memberMinutesPerKm.map((v) => v ?? fallback);
+  // 1단계 역 어디에도 경로가 없는 멤버가 있으면(서울↔부산 등) 2단계를 건너뛴다. 그 멤버는 속도·오차를 추정할
+  // 데이터가 없어 비슷한 중간 지역을 다시 조회하게 될 뿐이라, 모두가 갈 수 있는 역을 찾을 가능성이 거의 없다
+  if (memberMinutesPerKm.every((v) => v !== null)) {
+    const speeds = memberMinutesPerKm as number[];
     const modelMinutes = (s: Station, mi: number) =>
       (speeds[mi] * distanceMeters(s, members[mi])) / 1000;
     // 1단계에서 조회한 역마다 멤버별 "실제 − 속도 모델" 오차 (경로 없음은 null)

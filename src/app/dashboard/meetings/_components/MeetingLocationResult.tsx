@@ -16,6 +16,7 @@ interface RecommendedLocation {
 }
 
 interface MemberLocation {
+  userId: string;
   name: string;
   lat: number;
   lng: number;
@@ -86,6 +87,8 @@ export default function MeetingLocationResult({
   const travelTimesKeyRef = useRef<string | null>(null);
   // 마지막으로 노선을 조회한 역 id 목록
   const stationLinesKeyRef = useRef<string | null>(null);
+  // 가장 최근에 불러온 멤버 출발지. fetchData가 바로 이어서 calculate를 부를 때 state는 아직 갱신 전이라 따로 둔다
+  const memberLocationsRef = useRef<MemberLocation[]>([]);
   // 마지막으로 불러온 추천 결과. 결과가 바뀌면 지도·목록 선택을 전체 선택으로 되돌린다.
   const resultKeyRef = useRef<string | null>(null);
 
@@ -178,14 +181,14 @@ export default function MeetingLocationResult({
         (m.profiles as unknown as { name: string } | null)?.name ?? "멤버",
       ]),
     );
-    setMemberLocations(
-      (memberCoords ?? []).map((m) => ({
-        name: nameMap.get(m.user_id) ?? "멤버",
-        lat: m.lat,
-        lng: m.lng,
-        isMe: m.user_id === currentUserId,
-      })),
-    );
+    memberLocationsRef.current = (memberCoords ?? []).map((m) => ({
+      userId: m.user_id,
+      name: nameMap.get(m.user_id) ?? "멤버",
+      lat: m.lat,
+      lng: m.lng,
+      isMe: m.user_id === currentUserId,
+    }));
+    setMemberLocations(memberLocationsRef.current);
 
     // 추천 장소 확인
     const { data: existing } = await supabase
@@ -292,11 +295,20 @@ export default function MeetingLocationResult({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meetingId }),
       });
-      if (!res.ok)
+      if (!res.ok) {
+        // 대중교통 경로가 하나도 없었던 멤버가 있으면 그 멤버를 짚어 준다
+        const { unreachableUserIds }: { unreachableUserIds?: string[] } =
+          await res.json().catch(() => ({}));
+        const unreachable = memberLocationsRef.current
+          .filter((m) => unreachableUserIds?.includes(m.userId))
+          .map((m) => (m.isMe ? "내 출발지" : `${m.name}님의 출발지`));
         throw new Error(
-          RECOMMEND_ERROR_MESSAGES[res.status] ??
-            "장소 계산 중 오류가 발생했어요",
+          unreachable.length > 0
+            ? `${unreachable.join(", ")}에서 대중교통으로 갈 수 있는 역을 찾지 못했어요. 서울과 부산처럼 도시 사이를 오가는 경로는 길찾기가 되지 않아요`
+            : (RECOMMEND_ERROR_MESSAGES[res.status] ??
+                "장소 계산 중 오류가 발생했어요"),
         );
+      }
       const { stations }: { stations: RecommendedStation[] } =
         await res.json();
 

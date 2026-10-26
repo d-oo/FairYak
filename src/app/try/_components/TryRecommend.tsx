@@ -42,28 +42,28 @@ const SCORE_MODE_OPTIONS: ScoreModeOption[] = [
     id: "fair",
     label: "한 명도 멀지 않게",
     description:
-      "가장 오래 걸리는 사람의 시간을 가장 먼저 줄여요. 여럿이 빨라지더라도 한 명이 더 멀어지는 곳은 피해요.",
+      "가장 오래 걸리는 사람의 시간을 가장 먼저 줄입니다. 여럿이 빨라지더라도 한 명이 더 멀어지는 곳은 피합니다.",
   },
   {
     id: "balanced",
     label: "균형",
     description:
-      "오래 걸리는 사람일수록 1분을 더 무겁게 쳐요. 한 명이 조금 더 걸려도 여럿이 훨씬 빨라진다면 그쪽을 골라요.",
+      "오래 걸리는 사람일수록 1분을 더 무겁게 칩니다. 한 명이 조금 더 걸려도 여럿이 훨씬 빨라진다면 그쪽을 고릅니다.",
   },
   {
     id: "fast",
     label: "다 같이 빨리",
     description:
-      "모두의 이동시간이 고르게 짧은 곳을 앞세워요. 다만 한 사람만 유난히 멀어지는 곳은 피해요.",
+      "모두의 이동시간이 고르게 짧은 곳을 앞세웁니다. 다만 한 사람만 유난히 멀어지는 곳은 피합니다.",
   },
 ];
 
 // /api/try/recommend 실패 코드(error)별 안내 문구
 const ERROR_MESSAGES: Record<string, string> = {
-  quota_exceeded: "오늘 장소 검색 한도를 초과했어요. 스태프에게 알려주세요",
-  closed: "오늘 체험이 마감됐어요. 찾아와 주셔서 감사해요!",
+  quota_exceeded: "오늘 장소 검색 한도를 초과했습니다. 스태프에게 알려 주세요",
+  closed: "오늘 체험이 마감되었습니다. 찾아와 주셔서 감사합니다!",
   no_reachable_station:
-    "대중교통으로 모두가 갈 수 있는 역을 찾지 못했어요. 추천 과정에서 이유를 볼 수 있어요",
+    "대중교통으로 모두가 갈 수 있는 역을 찾지 못했습니다. 추천 과정에서 이유를 볼 수 있습니다",
 };
 
 let nextSlotKey = 0;
@@ -136,10 +136,17 @@ export default function TryRecommend() {
         stations?: RecommendedStation[];
         rankings?: Record<ScoreMode, string[]>;
         process?: TryProcessData;
+        unreachable?: number[];
       } = await res.json().catch(() => ({}));
       if (!res.ok) {
+        // 대중교통 경로가 하나도 없었던 출발지가 있으면 그 출발지를 짚어 준다
+        const unreachable = (data.unreachable ?? []).map(
+          (i) => `출발지 ${i + 1}(${filled[i].name})`,
+        );
         setError(
-          (data.error && ERROR_MESSAGES[data.error]) ?? "추천 중 오류가 발생했어요",
+          unreachable.length > 0
+            ? `${unreachable.join(", ")}에서 대중교통으로 갈 수 있는 역을 찾지 못했습니다. 서울과 부산처럼 도시 사이를 오가는 경로는 길찾기가 되지 않습니다`
+            : ((data.error && ERROR_MESSAGES[data.error]) ?? "추천 중 오류가 발생했습니다"),
         );
         if (data.error === "closed") setIsClosed(true);
       } else {
@@ -154,7 +161,7 @@ export default function TryRecommend() {
         setRunId((id) => id + 1);
       }
     } catch {
-      setError("추천 중 오류가 발생했어요");
+      setError("추천 중 오류가 발생했습니다");
     } finally {
       setIsLoading(false);
     }
@@ -182,7 +189,7 @@ export default function TryRecommend() {
         </h1>
         <p className="mt-2 text-sm leading-[1.6] text-muted">
           친구들의 출발지를 입력하면, 모두의 대중교통 이동시간이 고르게 짧은 지하철역을
-          추천해 드려요. 무엇이 공평한지는 사람마다 다르니, 순위 기준도 직접 바꿔 볼 수 있어요.
+          추천해 드립니다. 무엇이 공평한지는 사람마다 다르니, 순위 기준도 직접 바꿔 볼 수 있습니다.
         </p>
       </div>
 
@@ -289,7 +296,7 @@ export default function TryRecommend() {
                   ))}
                 </div>
                 <p className="mx-4.5 mt-3.5 text-center text-xs text-muted">
-                  후보 역들의 이동시간을 조회하고 있어요. 잠시만 기다려 주세요...
+                  후보 역들의 이동시간을 조회하고 있습니다. 잠시만 기다려 주세요...
                 </p>
               </div>
             )}
@@ -363,8 +370,8 @@ export default function TryRecommend() {
                   })}
                 </div>
                 <p className="border-t border-rule px-4.5 py-3 text-xs text-muted">
-                  지도에서 주홍색 라벨이 선택한 역까지 가장 오래 걸리는 출발지예요. 이 역들을
-                  고른 과정은 추천 과정에서 볼 수 있어요.
+                  지도에서 주홍색 라벨이 선택한 역까지 가장 오래 걸리는 출발지입니다. 이 역들을
+                  고른 과정은 추천 과정에서 볼 수 있습니다.
                 </p>
               </>
             )}
