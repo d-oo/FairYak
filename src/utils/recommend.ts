@@ -107,10 +107,11 @@ export function meetingCriterion(): Criterion {
 }
 
 // 체험 모드 순위 기준의 p (사람마다 골라 보는 용도. 실제 모임은 meetingCriterion()을 쓴다).
+// 1분의 무게는 t^(p−1)에 비례해서, 두 배 오래 걸리는 사람의 1분을 fast는 2배, balanced는 8배, fair는 약 2000배로 친다.
 // 5명이 "한 명 60분·넷 20분" vs "모두 45~50분"일 때 fair는 모두 비슷한 쪽, balanced는 넷이 크게 빨라지는 쪽을
-// 고르고, 3명 "상왕십리 26/18/35 vs 신당 28/23/34"는 balanced가 합이 작은 상왕십리를 고르도록 정했다.
+// 고르고, 3명 "상왕십리 26/18/35 vs 신당 28/23/34"는 balanced가 합이 작은 상왕십리를 고른다.
 // fast는 p 2라 평균 쪽이면서도 "한 명 1분·한 명 47분" 같은 극단적인 역은 피한다
-export const SCORE_MODE_POWERS = { fair: 12, balanced: 5, fast: 2 };
+export const SCORE_MODE_POWERS = { fair: 12, balanced: 4, fast: 2 };
 export type ScoreMode = keyof typeof SCORE_MODE_POWERS;
 export const SCORE_MODES = Object.fromEntries(
   Object.entries(SCORE_MODE_POWERS).map(([mode, p]) => [mode, powerMeanCriterion(p)]),

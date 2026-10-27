@@ -90,7 +90,7 @@ export function loadCases(): Case[] {
 }
 
 // 2단계 자리별 거듭제곱 평균의 p → 기준. 알고리즘은 같은 기준 객체끼리 자리를 묶어 상권 확인 범위를 정하므로,
-// p가 같으면 같은 객체를 쓴다 (체험 모드 기준과 p가 같으면 그 객체를 그대로 써서 [5, 12, 2, 5]가 체험 모드 배분과 같다)
+// p가 같으면 같은 객체를 쓴다 (체험 모드 기준과 p가 같으면 그 객체를 그대로 써서 [4, 12, 2, 4]가 체험 모드 배분과 같다)
 export function criteriaFromPowers(powers: number[]): Criterion[] {
   const byPower = new Map<number, Criterion>(
     (Object.entries(SCORE_MODE_POWERS) as [ScoreMode, number][]).map(([mode, p]) => [

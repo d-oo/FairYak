@@ -40,7 +40,7 @@ export interface ScoreModeOption {
 const SCORE_MODE_OPTIONS: ScoreModeOption[] = [
   {
     id: "fair",
-    label: "한 명도 멀지 않게",
+    label: "최장 우선",
     description:
       "가장 오래 걸리는 사람의 시간을 가장 먼저 줄입니다. 여럿이 빨라지더라도 한 명이 더 멀어지는 곳은 피합니다.",
   },
@@ -52,7 +52,7 @@ const SCORE_MODE_OPTIONS: ScoreModeOption[] = [
   },
   {
     id: "fast",
-    label: "다 같이 빨리",
+    label: "평균 우선",
     description:
       "모두의 이동시간이 고르게 짧은 곳을 앞세웁니다. 다만 한 사람만 유난히 멀어지는 곳은 피합니다.",
   },
@@ -90,6 +90,8 @@ export default function TryRecommend() {
   const [isClosed, setIsClosed] = useState(false);
 
   const filled = slots.flatMap((s) => (s.place ? [s.place] : []));
+  // 빈 칸을 건너뛰고 추천하면 결과의 "출발지 N" 번호가 입력 칸 번호와 어긋나므로, 모든 칸이 차야 추천한다
+  const allFilled = filled.length === slots.length;
   const modeOption = SCORE_MODE_OPTIONS.find((o) => o.id === mode)!;
   // 고른 기준의 상위 추천 역
   const stations =
@@ -259,15 +261,17 @@ export default function TryRecommend() {
               처음부터 다시
             </button>
           </div>
-          {filled.length < MIN_PLACES && (
+          {!allFilled && (
             <p className="px-4.5 pb-3.5 text-xs text-muted">
-              출발지를 {MIN_PLACES}곳 이상 선택해 주세요.
+              {slots.length > MIN_PLACES
+                ? "비어 있는 출발지를 선택하거나 삭제해 주세요."
+                : `출발지를 ${MIN_PLACES}곳 모두 선택해 주세요.`}
             </p>
           )}
           <button
             type="button"
             onClick={recommend}
-            disabled={filled.length < MIN_PLACES || isLoading || isClosed}
+            disabled={!allFilled || isLoading || isClosed}
             className="flex h-12 w-full cursor-pointer items-center justify-center border-t border-ink bg-accent text-[15px] font-semibold text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isClosed ? "오늘 체험 마감" : isLoading ? "계산 중..." : "중간 장소 추천받기"}
