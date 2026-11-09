@@ -11,8 +11,8 @@ interface Props {
   children: React.ReactNode;
   primaryLabel: string;
   primaryDisabled?: boolean;
-  // 주 버튼 색. 모임 나가기만 주홍
-  primaryTone?: "ink" | "accent";
+  // 주 버튼 색. 모임 나가기만 빨강
+  primaryTone?: "ink" | "danger";
   onPrimary?: () => void;
   onSubmit?: (e: React.SubmitEvent<HTMLFormElement>) => void;
   cancelDisabled?: boolean;
@@ -47,8 +47,8 @@ export default function Modal({
           onClick={onSubmit ? undefined : onPrimary}
           disabled={primaryDisabled}
           className={`h-11.5 flex-1 cursor-pointer text-sm font-semibold text-paper disabled:cursor-not-allowed disabled:opacity-40 ${
-            primaryTone === "accent"
-              ? "bg-accent enabled:hover:bg-accent-hover"
+            primaryTone === "danger"
+              ? "bg-danger enabled:hover:bg-danger-hover"
               : "bg-ink enabled:hover:bg-ink-hover"
           }`}
         >
@@ -87,4 +87,4 @@ export const MODAL_INPUT_CLASS =
 export const MODAL_LABEL_CLASS = "text-[13px] font-semibold";
 
 export const MODAL_ERROR_CLASS =
-  "border border-accent bg-error-bg px-3 py-2 text-xs text-accent-text-strong";
+  "border border-danger bg-error-bg px-3 py-2 text-xs text-danger-text";

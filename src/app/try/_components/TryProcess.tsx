@@ -5,7 +5,6 @@
 
 import { useState } from "react";
 import SectionHeader from "@/app/_components/SectionHeader";
-import type { ScoreModeOption } from "./TryRecommend";
 
 // /api/try/recommend 응답의 process
 export interface TryProcessData {
@@ -40,17 +39,17 @@ export default function TryProcess({
   process,
   memberNames,
   ranking,
-  criterion,
+  criterionLabel,
 }: {
   process: TryProcessData;
   // 계산에 쓴 출발지 이름 (입력 순서대로)
   memberNames: string[];
   // 체험객이 고른 기준으로 모두가 갈 수 있는 역 id를 순위대로 (실패했으면 빈 배열)
   ranking: string[];
-  criterion: ScoreModeOption;
+  // 체험객이 고른 순위 기준 이름. 기준 설명은 추천 장소 패널에 이미 있어 여기서는 이름만 쓴다
+  criterionLabel: string;
 }) {
   const [step, setStep] = useState(0);
-  const last = STEPS.length - 1;
 
   const { candidates } = process;
   const round1 = candidates.filter((c) => c.source === 1);
@@ -68,7 +67,7 @@ export default function TryProcess({
       title: `전국 ${process.stationCount}개 역 중 ${round1.length}곳을 골랐습니다`,
       summary: `${process.stationCount} → ${round1.length}`,
       description:
-        "모든 역을 다 조회할 수는 없으니, 먼저 지도 위 직선거리로 후보를 줄였습니다. 가장 멀리 있는 출발지까지의 거리가 짧은 역일수록 모두에게 고르게 가까운 역입니다.",
+        "모든 역의 이동시간을 다 조회할 수는 없으니, 먼저 지도 위 직선거리로 후보를 줄였습니다. 가장 멀리 있는 출발지까지의 거리가 짧은 역일수록 모두에게 고르게 가까운 역입니다.",
       body: (
         <div className="flex flex-wrap gap-1.5">
           {round1.map((c) => (
@@ -77,7 +76,9 @@ export default function TryProcess({
               className="border border-rule bg-input px-2.5 py-1 text-[13px]"
             >
               {c.name}
-              <span className="ml-1.5 text-xs text-muted">{c.lines.join(", ")}</span>
+              <span className="ml-1.5 text-xs text-muted">
+                {c.lines.join(", ")}
+              </span>
             </span>
           ))}
         </div>
@@ -85,8 +86,9 @@ export default function TryProcess({
     },
     {
       title: "주변에 먹고 마실 곳이 있는지 확인했습니다",
-      summary: venueLow.length === 0 ? "모두 통과" : `${venueLow.length}곳 제외`,
-      description: `만나서 밥 먹고 차 마실 곳이 있어야 하므로, 역 반경 ${process.venueRadius}m 안의 음식점·카페 수를 셌습니다. ${process.minVenues}곳이 안 되는 역은 후보에서 뺐습니다.`,
+      summary:
+        venueLow.length === 0 ? "모두 통과" : `${venueLow.length}곳 제외`,
+      description: `만나서 밥 먹고 차 마실 곳이 있어야 하므로, 역 반경 ${process.venueRadius}m 안의 음식점·카페 수를 셌습니다. ${process.minVenues}곳이 안 되는 역은 후보에서 제외했습니다.`,
       body: (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-px border border-rule bg-rule">
           {round1.map((c) => (
@@ -116,7 +118,7 @@ export default function TryProcess({
       description:
         `직선거리가 비슷하면 환승 노선이 많고 상권이 큰 역을 앞세워, 앞쪽 ${queried.length - round2Count}곳까지 출발지마다 대중교통 시간을 조회했습니다.` +
         (round2Count > 0
-          ? ` 역에서 먼 동네는 같은 거리라도 더 오래 걸리고, 노선 방향에 따라서도 빠르기가 다릅니다. 그래서 출발지끼리 오가는 대중교통 경로, 출발지별 이동 속도, 근처 역의 실제 조회 결과로 다른 역들의 이동시간을 추정해, 기준마다 유력한 ${round2Count}곳을 더 확인했습니다.`
+          ? ` 역에서 먼 동네는 같은 거리라도 더 오래 걸리고, 노선 방향에 따라서도 속도가 다릅니다. 그래서 출발지끼리 오가는 대중교통 경로, 출발지별 이동 속도, 근처 역의 실제 조회 결과로 다른 역들의 이동시간을 추정해, 기준마다 유력한 ${round2Count}곳을 더 확인했습니다.`
           : "") +
         (process.transitProvider === "tmap"
           ? " (오늘은 카카오 길찾기 조회 한도가 끝나 TMAP 길찾기로 조회했습니다.)"
@@ -130,7 +132,10 @@ export default function TryProcess({
                   {/* 표가 패널 폭을 채울 때 남는 폭은 역 칸이 가져가고, 출발지 칸은 내용만큼만 차지한다 */}
                   <th className="w-full px-3 py-2 text-left font-medium">역</th>
                   {memberNames.map((name, i) => (
-                    <th key={i} className="px-2 py-2 text-right font-medium whitespace-nowrap">
+                    <th
+                      key={i}
+                      className="px-2 py-2 text-right font-medium whitespace-nowrap"
+                    >
                       {/* 이름을 다 쓰면 칸이 넓어지므로 입력 화면과 같은 번호로 보여주고, 이름은 툴팁으로 */}
                       <span
                         className="cursor-help underline decoration-dotted underline-offset-3"
@@ -173,8 +178,8 @@ export default function TryProcess({
             </table>
           </div>
           <p className="mt-2 text-xs text-muted">
-            주홍 숫자는 그 역까지 가장 오래 걸리는 출발지입니다. ×는 대중교통으로 갈 수 없는
-            경우입니다.
+            파란 숫자는 그 역까지 가장 오래 걸리는 출발지입니다. ×는
+            대중교통으로 갈 수 없는 경우입니다.
           </p>
         </>
       ),
@@ -188,12 +193,12 @@ export default function TryProcess({
               "조회한 역마다 대중교통으로 갈 수 없는 출발지가 있었습니다. 출발지끼리 너무 멀면(예: 서울과 부산) 기차가 필요한데, 지금 쓰는 길찾기는 지하철·버스 위주라 경로를 찾지 못합니다.",
           }
         : {
-            title: `"${criterion.label}" 기준으로 ${Math.min(process.resultCount, ranked.length)}곳을 추천했습니다`,
+            title: `"${criterionLabel}" 기준으로 ${Math.min(process.resultCount, ranked.length)}곳을 추천합니다`,
             summary: `상위 ${Math.min(process.resultCount, ranked.length)}곳`,
             description:
-              `${criterion.description} 기준을 바꾸면 이미 조회한 이동시간으로 순위만 다시 매깁니다.` +
+              "기준을 바꾸면 이미 조회한 이동시간으로 순위만 다시 매깁니다." +
               (unreachable.length > 0
-                ? " 한 명이라도 대중교통으로 갈 수 없는 역은 뺐습니다."
+                ? " 한 명이라도 대중교통으로 갈 수 없는 역은 제외했습니다."
                 : ""),
           }),
       body: (
@@ -201,7 +206,9 @@ export default function TryProcess({
           <table className="w-full text-[13px]">
             <thead className="bg-page text-xs text-muted">
               <tr>
-                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">순위</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">
+                  순위
+                </th>
                 {/* 3단계 표처럼 남는 폭은 역 칸이 가져간다 */}
                 <th className="w-full px-3 py-2 text-left font-medium">역</th>
                 <th className="px-2 py-2 text-right font-medium whitespace-nowrap">
@@ -244,10 +251,18 @@ export default function TryProcess({
                 );
               })}
               {unreachable.map((c) => (
-                <tr key={c.id} className="border-t border-rule bg-paper text-faint">
+                <tr
+                  key={c.id}
+                  className="border-t border-rule bg-paper text-faint"
+                >
                   <td className="px-3 py-2 font-mono">–</td>
-                  <td className="px-3 py-2 whitespace-nowrap line-through">{c.name}</td>
-                  <td colSpan={2} className="px-2 py-2 text-right text-xs whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap line-through">
+                    {c.name}
+                  </td>
+                  <td
+                    colSpan={2}
+                    className="px-2 py-2 text-right text-xs whitespace-nowrap"
+                  >
                     갈 수 없는 출발지가 있어 제외
                   </td>
                 </tr>
@@ -262,14 +277,7 @@ export default function TryProcess({
 
   return (
     <section className="border border-ink bg-paper">
-      <SectionHeader
-        title="추천 과정"
-        right={
-          <span className="font-mono text-[11px] text-muted">
-            {step + 1}/{STEPS.length}
-          </span>
-        }
-      />
+      <SectionHeader title="추천 과정" />
 
       <div className="grid grid-cols-4 border-b border-ink">
         {STEPS.map((label, i) => {
@@ -301,29 +309,14 @@ export default function TryProcess({
       <div className="px-4.5 py-4">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3 className="text-[15px] font-semibold">{view.title}</h3>
-          <span className="ml-auto font-mono text-sm text-accent-text">{view.summary}</span>
+          <span className="ml-auto font-mono text-sm text-accent-text">
+            {view.summary}
+          </span>
         </div>
-        <p className="mt-1.5 text-[13px] leading-[1.6] text-muted">{view.description}</p>
+        <p className="mt-1.5 text-[13px] leading-[1.6] text-muted">
+          {view.description}
+        </p>
         <div className="mt-3.5">{view.body}</div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-ink px-4.5 py-3">
-        <button
-          type="button"
-          onClick={() => setStep(step - 1)}
-          disabled={step === 0}
-          className="h-9.5 cursor-pointer border border-ink px-3.5 text-[13px] font-medium text-ink enabled:hover:bg-page disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          이전
-        </button>
-        <button
-          type="button"
-          onClick={() => setStep(step + 1)}
-          disabled={step === last}
-          className="h-9.5 cursor-pointer border border-ink px-3.5 text-[13px] font-medium text-ink enabled:hover:bg-page disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          다음
-        </button>
       </div>
     </section>
   );

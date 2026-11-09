@@ -1,10 +1,12 @@
 "use client";
 
 // 졸업전시 체험 화면. 시안(design_handoff_fairyak_redesign)에 이 화면 명세는 없어서,
-// 모임 상세의 패널·지도 규칙(번호 붙은 패널, 주홍 업데이트 버튼, 추천 장소 목록)을 따라 만들었다.
+// 모임 상세의 패널·지도 규칙(번호 붙은 패널, 강조색 업데이트 버튼, 추천 장소 목록)을 따라 만들었다.
 
 import { useState } from "react";
-import AddressSearch, { type AddressResult } from "@/app/_components/AddressSearch";
+import AddressSearch, {
+  type AddressResult,
+} from "@/app/_components/AddressSearch";
 import RecommendMap from "@/app/_components/RecommendMap";
 import SectionHeader from "@/app/_components/SectionHeader";
 import type { ScoreMode } from "@/utils/recommend";
@@ -31,7 +33,7 @@ interface RecommendedStation {
 
 // 순위 기준. "어느 역이 더 공평한가"는 사람마다 생각이 달라서 체험객이 직접 바꿔 보게 한다.
 // 기준별 순위는 서버가 한 번에 매겨 주므로 바꿔도 다시 조회하지 않는다 (기준별 공식은 recommend.ts의 SCORE_MODES)
-export interface ScoreModeOption {
+interface ScoreModeOption {
   id: ScoreMode;
   label: string;
   description: string;
@@ -41,20 +43,17 @@ const SCORE_MODE_OPTIONS: ScoreModeOption[] = [
   {
     id: "fair",
     label: "최장 우선",
-    description:
-      "가장 오래 걸리는 사람의 시간을 가장 먼저 줄입니다. 여럿이 빨라지더라도 한 명이 더 멀어지는 곳은 피합니다.",
+    description: "가장 오래 걸리는 사람의 시간을 가장 먼저 줄입니다.",
   },
   {
     id: "balanced",
     label: "균형",
-    description:
-      "오래 걸리는 사람일수록 1분을 더 무겁게 칩니다. 한 명이 조금 더 걸려도 여럿이 훨씬 빨라진다면 그쪽을 고릅니다.",
+    description: "두 기준의 타협점입니다.",
   },
   {
     id: "fast",
     label: "평균 우선",
-    description:
-      "모두의 이동시간이 고르게 짧은 곳을 앞세웁니다. 다만 한 사람만 유난히 멀어지는 곳은 피합니다.",
+    description: "평균 이동시간이 짧은 곳을 우선합니다.",
   },
 ];
 
@@ -77,7 +76,9 @@ export default function TryRecommend() {
   const [usedPlaces, setUsedPlaces] = useState<AddressResult[]>([]);
   // 모두가 갈 수 있는 역 전부와, 기준별로 그 역들을 순위대로 세운 id 목록
   const [reachable, setReachable] = useState<RecommendedStation[] | null>(null);
-  const [rankings, setRankings] = useState<Record<ScoreMode, string[]> | null>(null);
+  const [rankings, setRankings] = useState<Record<ScoreMode, string[]> | null>(
+    null,
+  );
   const [mode, setMode] = useState<ScoreMode>("balanced");
   const [process, setProcess] = useState<TryProcessData | null>(null);
   // 추천할 때마다 바뀌어 과정 패널을 1단계부터 다시 보여주게 한다
@@ -148,7 +149,8 @@ export default function TryRecommend() {
         setError(
           unreachable.length > 0
             ? `${unreachable.join(", ")}에서 대중교통으로 갈 수 있는 역을 찾지 못했습니다. 서울과 부산처럼 도시 사이를 오가는 경로는 길찾기가 되지 않습니다`
-            : ((data.error && ERROR_MESSAGES[data.error]) ?? "추천 중 오류가 발생했습니다"),
+            : ((data.error && ERROR_MESSAGES[data.error]) ??
+                "추천 중 오류가 발생했습니다"),
         );
         if (data.error === "closed") setIsClosed(true);
       } else {
@@ -170,7 +172,7 @@ export default function TryRecommend() {
   }
 
   // 결과가 있으면 계산에 쓴 출발지와 선택된 역까지의 시간을, 없으면 지금 입력 중인 출발지를 보여준다.
-  // 선택된 역에서 가장 오래 걸리는 출발지는 주홍으로 표시한다.
+  // 선택된 역에서 가장 오래 걸리는 출발지는 강조색으로 표시한다.
   const selectedStation = stations?.[selected] ?? null;
   const slowest = selectedStation ? Math.max(...selectedStation.minutes) : null;
   const mapMembers = (stations ? usedPlaces : filled).map((p, i) => {
@@ -187,11 +189,12 @@ export default function TryRecommend() {
     <>
       <div className="mb-4.5">
         <h1 className="text-[clamp(24px,3vw,30px)] leading-[1.2] font-semibold tracking-[-0.035em]">
-          페어약 체험하기
+          체험하기
         </h1>
         <p className="mt-2 text-sm leading-[1.6] text-muted">
-          친구들의 출발지를 입력하면, 모두의 대중교통 이동시간이 고르게 짧은 지하철역을
-          추천해 드립니다. 무엇이 공평한지는 사람마다 다르니, 순위 기준도 직접 바꿔 볼 수 있습니다.
+          각자의 출발지를 입력하면, 모두의 대중교통 이동시간을 기준으로 가장
+          합리적인 지하철역을 추천해 드립니다. 무엇이 공평한지는 사람마다
+          다르니, 순위 기준도 직접 선택할 수 있습니다.
         </p>
       </div>
 
@@ -222,7 +225,9 @@ export default function TryRecommend() {
                     <button
                       type="button"
                       onClick={() =>
-                        setSlots((prev) => prev.filter((s) => s.key !== slot.key))
+                        setSlots((prev) =>
+                          prev.filter((s) => s.key !== slot.key),
+                        )
                       }
                       className="cursor-pointer text-[13px] text-faint underline underline-offset-3 hover:text-accent-text"
                     >
@@ -258,7 +263,7 @@ export default function TryRecommend() {
               onClick={reset}
               className="h-9.5 cursor-pointer border border-ink px-3.5 text-[13px] font-medium text-ink hover:bg-page"
             >
-              처음부터 다시
+              초기화
             </button>
           </div>
           {!allFilled && (
@@ -274,7 +279,11 @@ export default function TryRecommend() {
             disabled={!allFilled || isLoading || isClosed}
             className="flex h-12 w-full cursor-pointer items-center justify-center border-t border-ink bg-accent text-[15px] font-semibold text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isClosed ? "오늘 체험 마감" : isLoading ? "계산 중..." : "중간 장소 추천받기"}
+            {isClosed
+              ? "오늘 체험 마감"
+              : isLoading
+                ? "계산 중..."
+                : "중간 장소 추천받기"}
           </button>
         </section>
 
@@ -300,7 +309,8 @@ export default function TryRecommend() {
                   ))}
                 </div>
                 <p className="mx-4.5 mt-3.5 text-center text-xs text-muted">
-                  후보 역들의 이동시간을 조회하고 있습니다. 잠시만 기다려 주세요...
+                  후보 역들의 이동시간을 조회하고 있습니다. 잠시만 기다려
+                  주세요...
                 </p>
               </div>
             )}
@@ -360,10 +370,11 @@ export default function TryRecommend() {
                             {s.name} {s.lines.join(", ")}
                           </span>
                           <span className="mt-0.75 block font-mono text-xs text-muted">
-                            가장 오래 {Math.max(...s.minutes)}분 · 평균{" "}
+                            최장 {Math.max(...s.minutes)}분 · 평균{" "}
                             {Number(
                               (
-                                s.minutes.reduce((a, b) => a + b, 0) / s.minutes.length
+                                s.minutes.reduce((a, b) => a + b, 0) /
+                                s.minutes.length
                               ).toFixed(1),
                             )}
                             분
@@ -373,16 +384,12 @@ export default function TryRecommend() {
                     );
                   })}
                 </div>
-                <p className="border-t border-rule px-4.5 py-3 text-xs text-muted">
-                  지도에서 주홍색 라벨이 선택한 역까지 가장 오래 걸리는 출발지입니다. 이 역들을
-                  고른 과정은 추천 과정에서 볼 수 있습니다.
-                </p>
               </>
             )}
           </section>
         )}
 
-        <div className="min-w-0 border border-ink bg-map-bg min-[960px]:col-start-2 min-[960px]:row-start-1">
+        <div className="relative min-w-0 border border-ink bg-map-bg min-[960px]:col-start-2 min-[960px]:row-start-1">
           <RecommendMap
             members={mapMembers}
             stations={(stations ?? []).map((s) => ({
@@ -393,8 +400,30 @@ export default function TryRecommend() {
             // 체험 화면은 선택한 역 하나의 이동시간을 라벨에 보여주므로 한 번에 하나만 선택한다
             selected={stations ? [selected] : []}
             onToggle={setSelected}
-            className="relative h-80 overflow-hidden wide:h-135"
+            // isolate: 카카오 지도 내부의 z-index가 범례 위로 올라오지 않게 지도만의 쌓임 맥락을 만든다
+            className="relative isolate h-80 overflow-hidden wide:h-135"
           />
+          {/* 범례. 지도 맞춤 여백(위 40px) 안에 들어가도록 한 줄로 둔다 */}
+          {stations && (
+            <ul className="pointer-events-none absolute top-2 left-2 z-10 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-x-3 gap-y-1 border border-ink bg-paper px-2.5 py-1.5 text-[11px] text-ink">
+              <li className="flex items-center gap-1.5">
+                <span className="size-2.5 bg-ink" />
+                출발지
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="size-2.5 bg-accent" />
+                가장 오래 걸리는 출발지
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="size-3 rounded-full bg-accent" />
+                선택한 역
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-full border-2 border-ink bg-paper" />
+                다른 추천 역
+              </li>
+            </ul>
+          )}
         </div>
 
         {process && (
@@ -404,7 +433,7 @@ export default function TryRecommend() {
               process={process}
               memberNames={usedPlaces.map((p) => p.name)}
               ranking={rankings?.[mode] ?? []}
-              criterion={modeOption}
+              criterionLabel={modeOption.label}
             />
           </div>
         )}

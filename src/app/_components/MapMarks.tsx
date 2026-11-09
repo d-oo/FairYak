@@ -5,7 +5,7 @@ interface Point {
   y: number;
 }
 
-// 멤버 출발지 핀 + 오른쪽 라벨(없으면 핀만). 나는 주홍
+// 멤버 출발지 핀 + 오른쪽 라벨(없으면 핀만). 나는 강조색
 export function MemberPin({
   x,
   y,
@@ -34,7 +34,7 @@ export function MemberPin({
   );
 }
 
-// 핀에서 목적지까지의 점선. 내 선은 주홍
+// 핀에서 목적지까지의 점선. 내 선은 강조색
 export function RouteLines({
   lines,
 }: {

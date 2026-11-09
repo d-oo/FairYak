@@ -23,6 +23,7 @@ npx supabase db dump --linked --schema public -f <file>   # 원격 스키마 덤
 
 - 모든 테이블에 RLS가 켜져 있고 정책은 전부 `TO authenticated`다. `anon`은 어떤 로우도 볼 수 없다.
 - 예외로 서버만 쓰는 테이블(`tmap_usage`)은 RLS만 켜고 정책을 두지 않으며 `anon`·`authenticated` 권한을 회수한다. 이런 테이블을 다루는 함수는 `service_role`에만 `EXECUTE`를 주고, 서버가 secret key 클라이언트(`src/utils/supabase/admin.ts`)로 호출한다.
+- PostGIS가 `public`에 설치되어 있어 시스템 테이블 `spatial_ref_sys`도 노출된다. 소유자·권한 부여자가 `supabase_admin`이라 RLS를 켜거나 권한을 회수할 수 없으므로, 트리거 `block_spatial_ref_sys_writes`로 `anon`·`authenticated`의 쓰기만 막았다 (SELECT는 PostGIS가 쓰므로 열어 둔다). Supabase 보안 검사의 `rls_disabled_in_public` 경고는 이 때문에 계속 뜨며 무시해도 된다. PostGIS를 `extensions`로 옮기려면 확장을 지웠다 다시 깔아야 해서 geography 컬럼이 삭제되므로 하지 말 것.
 - 접근 범위: 개인 데이터(`user_schedules`, `user_locations`)는 본인만, 모임 데이터(`meetings`, `members`, `member_schedules`, `meeting_logs`, `recommended_locations`)는 해당 모임 멤버만, `invitations`는 보낸 사람·받은 사람·모임 멤버만. `profiles`는 본인 + 같은 모임 멤버 + 초대를 주고받은 사용자만 조회 가능하다. 초대받은 사람은 수락 전에도 알림에 표시할 모임 이름을 보기 위해 해당 `meetings` 로우를 조회할 수 있다.
 - 멤버십 판별은 security definer 헬퍼 `is_meeting_member(meeting_id)`, `shares_meeting_with(user_id)`를 쓴다. `members` 정책 안에서 `members`를 직접 조회하면 무한 재귀가 나므로 서브쿼리 대신 이 헬퍼를 쓸 것.
 - 정책 안의 `auth.uid()`는 `(select auth.uid())`로 감싼다.

@@ -213,7 +213,7 @@ export default function AddressSearch({
 
       {/* 에러 */}
       {error && (
-        <p className="border border-accent bg-error-bg px-3 py-2 text-xs text-accent-text-strong">
+        <p className="border border-danger bg-error-bg px-3 py-2 text-xs text-danger-text">
           {error}
         </p>
       )}

@@ -193,8 +193,8 @@ export default function KakaoMapCanvas({
     <>
       <div
         ref={containerRef}
-        // 지도 타일만 회색조로 (오버레이에는 img가 없어서 주홍 핀은 그대로 남는다)
-        className={`bg-map-bg [&_img]:filter-[grayscale(1)_sepia(0.22)_contrast(0.9)_brightness(1.03)] ${className}`}
+        // 지도 타일만 채도를 반쯤 빼서 핀·라벨이 묻히지 않게 한다 (오버레이에는 img가 없어서 핀 색은 그대로 남는다)
+        className={`bg-map-bg [&_img]:filter-[grayscale(0.5)_contrast(0.95)] ${className}`}
       />
       {map && layer && createPortal(children(project), layer)}
     </>

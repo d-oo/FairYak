@@ -1,37 +1,43 @@
 @import "tailwindcss";
 
-/* 새 시안(design_handoff_fairyak_redesign, 확정안 1d) 디자인 토큰 */
+/* 새 시안(design_handoff_fairyak_redesign, 확정안 1d) 디자인 토큰.
+   색은 시안의 베이지 배경 + 주홍 강조에서 블루그레이 배경 + 코발트 강조로 바꿨다 */
 :root {
-  --ink: #1c1b18;
-  --ink-hover: #3a3832;
-  --paper: #f4f1ea;
-  --page: #ece8de;
-  --map-bg: #e6e2d8;
-  --input: #fbfaf6;
-  --muted: #6f6b62;
-  --faint: #a39e92;
-  --disabled: #bdb8ac;
-  --rule: #d8d3c7;
-  --track: #e3ded3;
-  --accent: oklch(0.6 0.19 35);
-  --accent-hover: oklch(0.55 0.19 35);
-  --accent-text: oklch(0.52 0.19 35);
-  --accent-text-strong: oklch(0.47 0.17 35);
-  --accent-text-deep: oklch(0.42 0.14 35);
-  --accent-tint: oklch(0.9 0.05 50);
-  --accent-soft: #f8e9dd;
-  --error-bg: #fbefe6;
-  --bubble-bg: #fff8f1;
-  --row-hover: #efe7db;
+  --ink: #141a20;
+  --ink-hover: #323b44;
+  --paper: #f6f8f9;
+  --page: #e8ecef;
+  --map-bg: #dfe5ea;
+  --input: #fbfcfd;
+  --muted: #5d6873;
+  --faint: #94a0aa;
+  --disabled: #b3bcc4;
+  --rule: #cdd4da;
+  --track: #dde3e8;
+  --accent: oklch(0.52 0.17 262);
+  --accent-hover: oklch(0.47 0.17 262);
+  --accent-text: oklch(0.48 0.16 262);
+  --accent-text-strong: oklch(0.43 0.15 262);
+  --accent-text-deep: oklch(0.38 0.12 262);
+  --accent-tint: oklch(0.9 0.045 262);
+  --accent-soft: oklch(0.94 0.025 255);
+  /* 에러·되돌릴 수 없는 동작(모임 나가기)은 강조색이 아니라 빨강으로 표시한다 */
+  --danger: oklch(0.56 0.2 22);
+  --danger-hover: oklch(0.51 0.2 22);
+  --danger-text: oklch(0.45 0.17 22);
+  --error-bg: oklch(0.96 0.02 18);
+  --bubble-bg: oklch(0.97 0.012 255);
+  --row-hover: #e3e8ec;
+  --sunday: oklch(0.5 0.17 22);
   --saturday: oklch(0.48 0.09 250);
-  --overlay: rgba(28, 27, 24, 0.45);
+  --overlay: rgba(20, 26, 32, 0.45);
 
   /* 입력창 포커스 링 */
-  --focus-ring: 0 0 0 3px oklch(0.6 0.19 35 / 0.3);
+  --focus-ring: 0 0 0 3px oklch(0.52 0.17 262 / 0.3);
   /* 달력의 오늘 표시 */
-  --today-ring: inset 0 0 0 2px #1c1b18;
+  --today-ring: inset 0 0 0 2px #141a20;
   /* 지도 핀·썸네일 핀 헤일로 */
-  --pin-halo: 0 0 0 2px #f4f1ea;
+  --pin-halo: 0 0 0 2px #f6f8f9;
 }
 
 @theme inline {
@@ -53,9 +59,13 @@
   --color-accent-text-deep: var(--accent-text-deep);
   --color-accent-tint: var(--accent-tint);
   --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-text: var(--danger-text);
   --color-error-bg: var(--error-bg);
   --color-bubble-bg: var(--bubble-bg);
   --color-row-hover: var(--row-hover);
+  --color-sunday: var(--sunday);
   --color-saturday: var(--saturday);
   --color-overlay: var(--overlay);
 

@@ -88,7 +88,7 @@ export default function InviteSearchPanel({
       </div>
 
       {searchError && (
-        <p className="text-xs text-accent-text-strong">{searchError}</p>
+        <p className="text-xs text-danger-text">{searchError}</p>
       )}
 
       {searchResult && (

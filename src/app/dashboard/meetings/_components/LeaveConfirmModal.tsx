@@ -19,7 +19,7 @@ export default function LeaveConfirmModal({
       cancelDisabled={isLeaving}
       primaryLabel={isLeaving ? "나가는 중..." : "나가기"}
       primaryDisabled={isLeaving}
-      primaryTone="accent"
+      primaryTone="danger"
       onPrimary={onConfirm}
     >
       <div className="pt-3 pb-1 text-center">

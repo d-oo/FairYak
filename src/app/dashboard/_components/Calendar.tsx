@@ -52,9 +52,9 @@ function useMonthCells() {
   };
 }
 
-// 요일 색 (일 = 주홍, 토 = 파랑)
+// 요일 색 (일 = 빨강, 토 = 파랑)
 function dowTextClass(dow: number) {
-  return dow === 0 ? "text-accent-text" : dow === 6 ? "text-saturday" : "text-ink";
+  return dow === 0 ? "text-sunday" : dow === 6 ? "text-saturday" : "text-ink";
 }
 
 // ── 일정 관리 탭의 달력: 한가한 날을 클릭해서 토글 ──────────────
@@ -112,7 +112,7 @@ export default function Calendar({
         {DAY_NAMES.map((d, i) => (
           <span
             key={d}
-            className={`px-2.5 py-2 ${i === 0 ? "text-accent-text" : i === 6 ? "text-saturday" : ""}`}
+            className={`px-2.5 py-2 ${i === 0 ? "text-sunday" : i === 6 ? "text-saturday" : ""}`}
           >
             {d}
           </span>
